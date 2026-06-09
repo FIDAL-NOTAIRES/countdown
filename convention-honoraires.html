@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIDAL Notaires — Convention d'honoraires (certification & légalisation)</title>
+<style>
+  :root{ --navy:#0F2238; --teal:#33838B; --slate:#657D96; --ocre:#E3CC7A; --cyan:#6DD5DC; --ink:#1C1917; --line:#C3CBD4; --blue:#DCE6EF; --blue-bd:#8FA6BC; --muted:#657D96; --accent:#A8821C; --accent-dk:#8C6B14; }
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9eaec;font-family:"Segoe UI",system-ui,Arial,sans-serif;color:var(--ink);font-size:13px;padding:24px}
+
+  .toolbar{max-width:840px;margin:0 auto 18px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+  .trow{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;width:100%}
+  .toolbar h2{width:100%;margin:0 0 10px;font-size:15px;font-weight:700;color:#fff;background:var(--navy);padding:9px 14px;border-radius:6px;letter-spacing:.2px}
+  .tf{display:flex;flex-direction:column;gap:3px}
+  .tf label{font-size:11px;color:var(--muted);font-weight:600}
+  .tf input{border:1px solid var(--blue-bd);background:var(--blue);border-radius:6px;padding:7px 9px;font:inherit;width:158px;min-width:0}
+  .toolbar .btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 16px;font:inherit;font-weight:600;cursor:pointer}
+  .toolbar .btn.sec{background:#fff;color:var(--accent);border:1px solid var(--accent)}
+  .toolbar .sp{margin-left:auto}
+  .actions{width:100%;display:flex;flex-wrap:wrap;gap:12px;margin-top:6px}
+
+  .sheet{max-width:840px;margin:0 auto;background:#fff;border:1px solid var(--line);box-shadow:0 2px 14px rgba(0,0,0,.08);padding:26px 66px 30px}
+
+  .head{display:grid;grid-template-columns:1fr auto 1fr;align-items:flex-start;gap:14px;margin-bottom:10px}
+  .names{font-size:9.5px;line-height:1.45;color:var(--ink)}
+  .names b{font-weight:700}
+  .names .assoc{font-weight:400;color:#333}
+  .logo{text-align:center;padding-top:10px}.logo img{height:62px;width:auto;display:inline-block}
+  .logo .f{font-family:Georgia,"Times New Roman",serif;font-size:40px;font-weight:700;letter-spacing:7px;color:var(--navy);line-height:1}
+  .logo .n{font-family:Georgia,"Times New Roman",serif;font-size:13px;letter-spacing:9px;color:var(--navy);margin-top:2px}
+  .meta{text-align:right;font-size:12px;color:#333;line-height:1.6;padding-top:30px}
+  .meta b{color:var(--navy);font-weight:600}
+
+  .banner{background:var(--navy);color:#fff;font-weight:700;text-align:center;padding:6px;margin:12px 0 8px}
+  .banner.title{font-size:17px}
+  .banner.sect{font-size:14px}
+  .intro{font-size:12px;line-height:1.5;margin:4px 0}
+
+  table.grid{width:100%;border-collapse:collapse;margin:5px 0}
+  table.grid td{padding:1.5px 7px;vertical-align:middle}
+  .colhead td{font-size:10px;color:#333;text-align:right;padding-bottom:1px;white-space:nowrap}
+  .colhead td.lab{text-align:left}
+  td.qty{width:40px;text-align:center}
+  td.qty input{width:34px;text-align:center;border:1px solid #657D96;background:var(--blue);border-radius:0;padding:2px 1px;font:inherit;font-size:12px}
+  td.qty select{width:48px;text-align:center;border:1px solid #657D96;background:var(--blue);border-radius:0;padding:2px 1px;font:inherit;font-size:12px}
+  td.label{font-size:12.5px}
+  td.unit,td.tot{width:100px;text-align:right;font-variant-numeric:tabular-nums;border:1px solid #657D96;font-weight:700;white-space:nowrap}
+  td.unit.unit-pp{font-size:10.5px}
+  td.unit{color:#222}
+  .subhdr{font-size:12px;font-weight:400;margin:9px 0 0}
+  .grid tr.grouprow td{font-weight:700;color:var(--navy);font-size:12px;padding:16px 7px 3px;border:none;border-bottom:1px solid var(--line);vertical-align:bottom}
+  .grid tr.grouprow td.gch{font-weight:400;color:#333;font-size:10px;text-align:right;white-space:nowrap}
+  .grid tr.grouprow:first-child td{padding-top:6px}
+  .grid tr.colhead + tr.grouprow td{padding-top:4px}
+  .note{font-size:11.5px;color:#333;line-height:1.5;margin:3px 0}
+  .note .lk{color:#33838B;text-decoration:underline}
+  .note .ind{margin:1px 0 1px 8px}
+
+  .subtotal{display:flex;justify-content:flex-end;align-items:stretch;margin-top:5px}
+  .subtotal .lab{font-size:12px;color:#333;padding:4px 8px;align-self:center}
+  .subtotal .v{width:100px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;border:1px solid #657D96;padding:4px 7px}
+
+  .pays{display:flex;justify-content:flex-start;align-items:center;gap:8px;margin:8px 0 8px 86px}
+  .pays label{font-size:12.5px}
+  .pays input{border:1px solid var(--blue-bd);background:var(--blue);border-radius:0;padding:5px 9px;font:inherit;min-width:170px}
+  .pays select{border:1px solid var(--blue-bd);background:var(--blue);border-radius:0;padding:5px 9px;font:inherit;min-width:210px}
+  .pays .paysval{font-weight:600;color:var(--navy)}
+  .toolbar #pays{width:178px;min-width:0}
+
+  .totals{margin:14px 0 6px auto;width:300px}
+  .totals .row{display:flex;justify-content:flex-end;align-items:stretch}
+  .totals .row .lab{font-size:12.5px;padding:4px 8px;align-self:center}
+  .totals .row .v{width:100px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;border:1px solid #657D96;border-top:none;padding:4px 7px}
+  .totals .row:first-child .v{border-top:1px solid #657D96}
+  .totals .ttc .lab,.totals .ttc .v{font-size:14px;color:var(--navy)}
+
+  .sign{border:1px solid #657D96;min-height:120px;margin:16px 0 6px;padding:7px 10px}
+  .sign .lbl{font-style:italic;font-size:12.5px;color:#222}
+
+  .legal{font-style:italic;font-size:10px;color:#555;line-height:1.45;text-align:justify;margin:12px 0}
+  .pay{text-align:center;font-size:12px;line-height:1.7;margin-top:10px}
+  .pay .t{font-weight:400}
+  .pay .rib{border:1px solid var(--line);border-radius:0;padding:6px;margin-top:3px}
+  td.unit input{width:56px;border:1px solid var(--blue-bd);background:var(--blue);border-radius:0;padding:2px 3px;font:inherit;text-align:right}
+  .toolbar select{border:1px solid var(--blue-bd);background:var(--blue);border-radius:6px;padding:7px 9px;font:inherit;min-width:90px}
+  .hidden{display:none!important}
+  .page2{margin-top:24px}
+
+  @media print{
+    body{background:#fff;padding:0;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .toolbar{display:none}
+    .sheet{box-shadow:none;border:none;max-width:none;margin:0;padding:8mm 24mm;page-break-after:always}
+    .sheet:last-of-type{page-break-after:auto}
+    .page2{page-break-before:auto;margin-top:0}
+    .intro{margin:2px 0}
+    .banner{margin:6px 0 3px}
+    .banner.title{padding:5px}
+    .banner.sect{padding:5px}
+    .grid{margin:3px 0}
+    .grid td{padding:1px 7px}
+    .grid tr.grouprow td{padding:10px 7px 2px}
+    .grid tr.grouprow:first-child td{padding-top:4px}
+    .grid tr.colhead + tr.grouprow td{padding-top:3px}
+    .subhdr{margin:5px 0 0}
+    .note{margin:2px 0}
+    .subtotal{margin-top:3px}
+    .totals{margin:5px 0 3px auto}
+    .totals .row .v,.totals .row .lab{padding:3px 7px}
+    .sign{min-height:145px;margin:8px 0 5px}
+    .legal{margin:4px 0;font-size:8.7px;line-height:1.3}
+    .pay{margin-top:8px}
+    @page{size:A4;margin:0}
+  }
+  body.pdfmode{background:#fff;padding:0;font-size:11px}
+  body.pdfmode .toolbar{display:none}
+  body.pdfmode .sheet{box-shadow:none;border:none;width:794px;max-width:794px;margin:0;padding:8mm 24mm}
+  body.pdfmode .page2{margin-top:0}
+  body.pdfmode .intro{margin:2px 0}
+  body.pdfmode .banner{margin:6px 0 3px}
+  body.pdfmode .banner.title,body.pdfmode .banner.sect{padding:5px}
+  body.pdfmode .grid{margin:3px 0}
+  body.pdfmode .grid td{padding:1px 7px}
+  body.pdfmode .grid tr.grouprow td{padding:10px 7px 2px}
+  body.pdfmode .grid tr.grouprow:first-child td{padding-top:4px}
+  body.pdfmode .grid tr.colhead + tr.grouprow td{padding-top:3px}
+  body.pdfmode .subhdr{margin:5px 0 0}
+  body.pdfmode .note{margin:2px 0}
+  body.pdfmode .subtotal{margin-top:3px}
+  body.pdfmode .totals{margin:5px 0 3px auto}
+  body.pdfmode .totals .row .v,body.pdfmode .totals .row .lab{padding:3px 7px}
+  body.pdfmode .sign{min-height:145px;margin:8px 0 5px}
+  body.pdfmode .legal{margin:4px 0;font-size:8.7px;line-height:1.3}
+  body.pdfmode .pay{margin-top:8px}
+  /* Quantités : menus déroulants -> texte propre dans le PDF / à l'impression */
+  @media print{ td.qty select{-webkit-appearance:none;appearance:none;border:none;background:transparent;padding:0;width:auto;text-align:center;font:inherit;color:inherit} }
+  body.pdfmode td.qty select{-webkit-appearance:none;appearance:none;border:none;background:transparent;padding:0;width:auto;text-align:center;font:inherit;color:inherit}
+  /* Espace avant « Décompte » quand la partie Émoluments est affichée */
+  #emolBlock:not(.hidden) + .banner.title{margin-top:40px}
+  body.pdfmode #emolBlock:not(.hidden) + .banner.title{margin-top:28px}
+  @media print{ #emolBlock:not(.hidden) + .banner.title{margin-top:28px} }
+</style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+
+<div class="toolbar">
+  <h2>Renseigner puis générer le PDF / envoyer pour signature</h2>
+  <div class="trow">
+  <div class="tf"><label>Client</label><input id="client" value="M. COUVREUR"></div>
+  <div class="tf"><label>N° client (compta)</label><input id="ncli" placeholder="ex. 12345"></div>
+  <div class="tf"><label>Email destinataire</label><input id="emailTo" type="email" placeholder="destinataire@..."></div>
+  </div>
+  <div class="trow">
+  <div class="tf"><label>En copie (1)</label><input id="emailCc1" type="email" value="emma.bruneau@fidal.notaires.fr"></div>
+  <div class="tf"><label>En copie (2)</label><input id="emailCc2" type="email" value="jean-francois.dumetz@fidal.notaires.fr"></div>
+  </div>
+  <div class="trow">
+  <div class="tf"><label>Pays concerné</label><select id="pays"><option value="">—</option><option value="Afghanistan">Afghanistan</option><option value="Afrique du Sud">Afrique du Sud</option><option value="Albanie">Albanie</option><option value="Algérie">Algérie</option><option value="Allemagne">Allemagne</option><option value="Andorre">Andorre</option><option value="Angola">Angola</option><option value="Antigua-et-Barbuda">Antigua-et-Barbuda</option><option value="Arabie saoudite">Arabie saoudite</option><option value="Argentine">Argentine</option><option value="Arménie">Arménie</option><option value="Australie">Australie</option><option value="Autriche">Autriche</option><option value="Azerbaïdjan">Azerbaïdjan</option><option value="Bahamas">Bahamas</option><option value="Bahreïn">Bahreïn</option><option value="Bangladesh">Bangladesh</option><option value="Barbade">Barbade</option><option value="Belgique">Belgique</option><option value="Belize">Belize</option><option value="Bénin">Bénin</option><option value="Bhoutan">Bhoutan</option><option value="Biélorussie">Biélorussie</option><option value="Birmanie (Myanmar)">Birmanie (Myanmar)</option><option value="Bolivie">Bolivie</option><option value="Bosnie-Herzégovine">Bosnie-Herzégovine</option><option value="Botswana">Botswana</option><option value="Brésil">Brésil</option><option value="Brunei">Brunei</option><option value="Bulgarie">Bulgarie</option><option value="Burkina Faso">Burkina Faso</option><option value="Burundi">Burundi</option><option value="Cambodge">Cambodge</option><option value="Cameroun">Cameroun</option><option value="Canada">Canada</option><option value="Cap-Vert">Cap-Vert</option><option value="Chili">Chili</option><option value="Chine">Chine</option><option value="Chypre">Chypre</option><option value="Colombie">Colombie</option><option value="Comores">Comores</option><option value="Congo (Brazzaville)">Congo (Brazzaville)</option><option value="Congo (RDC)">Congo (RDC)</option><option value="Corée du Nord">Corée du Nord</option><option value="Corée du Sud">Corée du Sud</option><option value="Costa Rica">Costa Rica</option><option value="Côte d'Ivoire">Côte d'Ivoire</option><option value="Croatie">Croatie</option><option value="Cuba">Cuba</option><option value="Danemark">Danemark</option><option value="Djibouti">Djibouti</option><option value="Dominique">Dominique</option><option value="Égypte">Égypte</option><option value="Émirats arabes unis">Émirats arabes unis</option><option value="Équateur">Équateur</option><option value="Érythrée">Érythrée</option><option value="Espagne">Espagne</option><option value="Estonie">Estonie</option><option value="Eswatini">Eswatini</option><option value="États-Unis">États-Unis</option><option value="Éthiopie">Éthiopie</option><option value="Fidji">Fidji</option><option value="Finlande">Finlande</option><option value="France">France</option><option value="Gabon">Gabon</option><option value="Gambie">Gambie</option><option value="Géorgie">Géorgie</option><option value="Ghana">Ghana</option><option value="Grèce">Grèce</option><option value="Grenade">Grenade</option><option value="Guatemala">Guatemala</option><option value="Guinée">Guinée</option><option value="Guinée équatoriale">Guinée équatoriale</option><option value="Guinée-Bissau">Guinée-Bissau</option><option value="Guyana">Guyana</option><option value="Haïti">Haïti</option><option value="Honduras">Honduras</option><option value="Hongrie">Hongrie</option><option value="Îles Marshall">Îles Marshall</option><option value="Îles Salomon">Îles Salomon</option><option value="Inde">Inde</option><option value="Indonésie">Indonésie</option><option value="Irak">Irak</option><option value="Iran">Iran</option><option value="Irlande">Irlande</option><option value="Islande">Islande</option><option value="Israël">Israël</option><option value="Italie">Italie</option><option value="Jamaïque">Jamaïque</option><option value="Japon">Japon</option><option value="Jordanie">Jordanie</option><option value="Kazakhstan">Kazakhstan</option><option value="Kenya">Kenya</option><option value="Kirghizistan">Kirghizistan</option><option value="Kiribati">Kiribati</option><option value="Koweït">Koweït</option><option value="Laos">Laos</option><option value="Lesotho">Lesotho</option><option value="Lettonie">Lettonie</option><option value="Liban">Liban</option><option value="Liberia">Liberia</option><option value="Libye">Libye</option><option value="Liechtenstein">Liechtenstein</option><option value="Lituanie">Lituanie</option><option value="Luxembourg">Luxembourg</option><option value="Macédoine du Nord">Macédoine du Nord</option><option value="Madagascar">Madagascar</option><option value="Malaisie">Malaisie</option><option value="Malawi">Malawi</option><option value="Maldives">Maldives</option><option value="Mali">Mali</option><option value="Malte">Malte</option><option value="Maroc">Maroc</option><option value="Maurice">Maurice</option><option value="Mauritanie">Mauritanie</option><option value="Mexique">Mexique</option><option value="Micronésie">Micronésie</option><option value="Moldavie">Moldavie</option><option value="Monaco">Monaco</option><option value="Mongolie">Mongolie</option><option value="Monténégro">Monténégro</option><option value="Mozambique">Mozambique</option><option value="Namibie">Namibie</option><option value="Nauru">Nauru</option><option value="Népal">Népal</option><option value="Nicaragua">Nicaragua</option><option value="Niger">Niger</option><option value="Nigeria">Nigeria</option><option value="Norvège">Norvège</option><option value="Nouvelle-Zélande">Nouvelle-Zélande</option><option value="Oman">Oman</option><option value="Ouganda">Ouganda</option><option value="Ouzbékistan">Ouzbékistan</option><option value="Pakistan">Pakistan</option><option value="Palaos">Palaos</option><option value="Palestine">Palestine</option><option value="Panama">Panama</option><option value="Papouasie-Nouvelle-Guinée">Papouasie-Nouvelle-Guinée</option><option value="Paraguay">Paraguay</option><option value="Pays-Bas">Pays-Bas</option><option value="Pérou">Pérou</option><option value="Philippines">Philippines</option><option value="Pologne">Pologne</option><option value="Portugal">Portugal</option><option value="Qatar">Qatar</option><option value="République centrafricaine">République centrafricaine</option><option value="République dominicaine">République dominicaine</option><option value="Roumanie">Roumanie</option><option value="Royaume-Uni">Royaume-Uni</option><option value="Russie">Russie</option><option value="Rwanda">Rwanda</option><option value="Saint-Christophe-et-Niévès">Saint-Christophe-et-Niévès</option><option value="Saint-Marin">Saint-Marin</option><option value="Saint-Vincent-et-les-Grenadines">Saint-Vincent-et-les-Grenadines</option><option value="Sainte-Lucie">Sainte-Lucie</option><option value="Salvador">Salvador</option><option value="Samoa">Samoa</option><option value="Sao Tomé-et-Principe">Sao Tomé-et-Principe</option><option value="Sénégal">Sénégal</option><option value="Serbie">Serbie</option><option value="Seychelles">Seychelles</option><option value="Sierra Leone">Sierra Leone</option><option value="Singapour">Singapour</option><option value="Slovaquie">Slovaquie</option><option value="Slovénie">Slovénie</option><option value="Somalie">Somalie</option><option value="Soudan">Soudan</option><option value="Soudan du Sud">Soudan du Sud</option><option value="Sri Lanka">Sri Lanka</option><option value="Suède">Suède</option><option value="Suisse">Suisse</option><option value="Suriname">Suriname</option><option value="Syrie">Syrie</option><option value="Tadjikistan">Tadjikistan</option><option value="Tanzanie">Tanzanie</option><option value="Tchad">Tchad</option><option value="Tchéquie">Tchéquie</option><option value="Thaïlande">Thaïlande</option><option value="Timor oriental">Timor oriental</option><option value="Togo">Togo</option><option value="Tonga">Tonga</option><option value="Trinité-et-Tobago">Trinité-et-Tobago</option><option value="Tunisie">Tunisie</option><option value="Turkménistan">Turkménistan</option><option value="Turquie">Turquie</option><option value="Tuvalu">Tuvalu</option><option value="Ukraine">Ukraine</option><option value="Uruguay">Uruguay</option><option value="Vanuatu">Vanuatu</option><option value="Vatican">Vatican</option><option value="Venezuela">Venezuela</option><option value="Viêt Nam">Viêt Nam</option><option value="Yémen">Yémen</option><option value="Zambie">Zambie</option><option value="Zimbabwe">Zimbabwe</option></select></div>
+  <div class="tf"><label>Procuration authentique ?</label>
+    <select id="procSel"><option value="non">Non</option><option value="oui">Oui</option></select></div>
+  <div class="tf proc-fld hidden"><label>Nombre de procurations</label><select id="procNb"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></div>
+  <div class="tf proc-fld hidden"><label>Pages de la procuration</label><select id="procPages"><option value="0">0</option><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option></select></div>
+  </div>
+  <div class="actions">
+    <button class="btn" id="pdfBtn">Générer le PDF</button>
+    <button class="btn" id="mailBtn">Envoyer par mail (PDF joint)</button>
+    <button class="btn" id="sendBtn">Envoyer pour signature (Yousign)</button>
+  </div>
+</div>
+
+<div id="docArea">
+<div class="sheet" id="sheet">
+  <div class="head">
+    <div></div>
+    <div class="logo"><img alt="FIDAL NOTAIRES" src="data:image/png;base64,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"></div>
+    <div class="meta"><div id="dateTxt"></div><b id="clientTxt">Client : M. COUVREUR</b></div>
+  </div>
+
+  <div class="banner title">Convention d'honoraires</div>
+  <p class="intro" style="text-align:justify">Honoraires dus à FIDAL NOTAIRES en vertu de l'alinéa 3 de l'article L 444‑1 du Code de commerce pour la réalisation des prestations suivantes :</p>
+
+  <div class="banner sect">Certification</div>
+  <table class="grid">
+    <tr class="grouprow"><td colspan="2">Formalité requise</td><td class="gch">coût unitaire HT</td><td class="gch">coût total HT</td></tr>
+    <tr><td class="qty"><select data-q data-u="50" data-grp="cert"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option></select></td><td class="label">copie(s) de document(s)</td><td class="unit">50 €</td><td class="tot" data-line>- €</td></tr>
+    <tr><td class="qty"><select data-q data-u="50" data-grp="cert"><option value="0">0</option><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option></select></td><td class="label">certification(s) de signature(s)</td><td class="unit">50 €</td><td class="tot" data-line>50 €</td></tr>
+    <tr class="grouprow"><td colspan="2">Dépôt de spécimen de signature / pièce d'identité</td><td class="gch">coût unitaire HT</td><td class="gch">coût total HT</td></tr>
+    <tr><td class="qty"><select data-q data-u="150" data-grp="cert"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option></select></td><td class="label">Acte de dépôt</td><td class="unit">150 €</td><td class="tot" data-line>- €</td></tr>
+    <tr class="grouprow"><td colspan="2">Legal opinion</td><td class="gch">coût unitaire HT</td><td class="gch">coût total HT</td></tr>
+    <tr><td class="qty"><select data-q data-u="350" data-grp="cert"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option></select></td><td class="label">nécessité d'une legal opinion</td><td class="unit">350 €</td><td class="tot" data-line>- €</td></tr>
+  </table>
+  <div class="subtotal"><span class="lab">sous‑total HT :</span><span class="v" id="stCert">50 €</span></div>
+
+  <div class="banner sect">Légalisation</div>
+  <p class="note">Rappel : le type de légalisation est fonction du pays de destination et du type de document.</p>
+  <div class="pays"><label>pays concerné :</label><span id="paysTxt" class="paysval">—</span></div>
+  <table class="grid">
+    <tr class="grouprow"><td colspan="2">Formalité requise</td><td class="gch">coût unitaire HT</td><td class="gch">coût total HT</td></tr>
+    <tr><td class="qty"><select data-q data-u="50" data-grp="leg"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option></select></td><td class="label">dispense(s)</td><td class="unit">50 €</td><td class="tot" data-line>- €</td></tr>
+    <tr><td class="qty"><select data-q data-u="50" data-grp="leg"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option></select></td><td class="label">apostille(s)</td><td class="unit">50 €</td><td class="tot" data-line>- €</td></tr>
+    <tr><td class="qty"><select data-q data-u="60" data-grp="leg"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option></select></td><td class="label">légalisation(s)</td><td class="unit">60 €</td><td class="tot" data-line>- €</td></tr>
+    <tr class="grouprow"><td colspan="2">Frais de déplacement et d'envoi</td><td class="gch">coût unitaire HT</td><td class="gch">coût total HT</td></tr>
+    <tr><td class="qty"><select data-q data-u="20" data-grp="leg"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option></select></td><td class="label">forfait déplacement apostille</td><td class="unit">20 €</td><td class="tot" data-line>- €</td></tr>
+    <tr><td class="qty"><select data-q data-u="50" data-grp="leg"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option></select></td><td class="label">envoi par courrier express (DHL) zone europe</td><td class="unit">50 €</td><td class="tot" data-line>- €</td></tr>
+    <tr><td class="qty"><select data-q data-u="85" data-grp="leg"><option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option></select></td><td class="label">envoi par courrier express (DHL) hors europe</td><td class="unit">85 €</td><td class="tot" data-line>- €</td></tr>
+  </table>
+  <div class="subtotal"><span class="lab">sous‑total HT :</span><span class="v" id="stLeg">- €</span></div>
+
+  <div class="totals">
+    <div class="row"><span class="lab">total HT</span><span class="v" id="totHT">50 €</span></div>
+    <div class="row"><span class="lab">TVA</span><span class="v" id="tva">10 €</span></div>
+    <div class="row ttc"><span class="lab">total TTC</span><span class="v" id="ttc">60 €</span></div>
+  </div>
+
+  <div class="sign"><div class="lbl">« Bon pour accord » – signature</div></div>
+
+  <p class="legal"><b>L444‑1 al.3 du Code de commerce</b><br>Sauf disposition contraire, les prestations que les professionnels mentionnés au premier alinéa du présent article accomplissent en concurrence avec celles, non soumises à un tarif, d'autres professionnels ne sont pas soumises à un tarif réglementé. Les honoraires rémunérant ces prestations tiennent compte, selon les usages, de la situation de fortune du client, de la difficulté de l'affaire, des frais exposés par les professionnels concernés, de leur notoriété et des diligences de ceux‑ci. Les professionnels concernés concluent par écrit avec leur client une convention d'honoraires, qui précise, notamment, le montant ou le mode de détermination des honoraires couvrant les diligences prévisibles, ainsi que les divers frais et débours envisagés.</p>
+</div>
+
+
+<div class="sheet page2" id="page2">
+  <div class="head">
+    <div></div>
+    <div class="logo"><img id="logo2" alt="FIDAL NOTAIRES"></div>
+    <div class="meta"><div id="dateTxt2"></div><b id="clientTxt2">Client : M. COUVREUR</b></div>
+  </div>
+
+  <div id="emolBlock" class="hidden">
+  <div class="banner title">Émoluments — Procuration authentique</div>
+  <p class="intro">Acte soumis au tarif réglementé des notaires : émolument fixe de l'acte + copies authentiques facturées à la page.</p>
+
+  <table class="grid">
+    <tr class="grouprow"><td colspan="2">Prestation</td><td class="gch">coût unitaire HT</td><td class="gch">coût total HT</td></tr>
+    <tr><td class="qty" id="eNbProc">1</td><td class="label">Procuration (émolument de l'acte)</td>
+        <td class="unit">26,41 € HT</td>
+        <td class="tot" id="eActeTot">26,41 €</td></tr>
+    <tr><td class="qty" id="eNbAff">1</td><td class="label">Copies authentiques <small id="eDetail">(2 pages)</small></td>
+        <td class="unit unit-pp"><span id="eCopiePageTxt">1,00 €</span> HT/page</td>
+        <td class="tot" id="eCopiesTot">- €</td></tr>
+    <tr><td class="qty">1</td><td class="label">Émoluments de formalités</td>
+        <td class="unit">11,24 € HT</td>
+        <td class="tot" id="eFormTot">11,24 €</td></tr>
+  </table>
+
+  <div class="totals" style="width:400px">
+    <div class="row"><span class="lab">total HT</span><span class="v" id="eHT">- €</span></div>
+    <div class="row"><span class="lab">TVA</span><span class="v" id="eTVA">- €</span></div>
+    <div class="row"><span class="lab">Droit d'enregistrement sur état (hors TVA)</span><span class="v" id="eDroit">25,00 €</span></div>
+    <div class="row ttc"><span class="lab">total TTC</span><span class="v" id="eTTC">- €</span></div>
+  </div>
+
+  <p class="legal">Tarif réglementé (émoluments) — distinct des honoraires libres de la page précédente. L'émolument de l'acte de procuration s'élève à 31,69 € TTC (soit 26,41 € HT) selon le tarif réglementé. Le droit d'enregistrement sur état (25 € par procuration) est une taxe perçue pour le compte de l'État, non soumise à TVA.</p>
+  </div>
+
+  <div class="banner title">Décompte</div>
+  <p class="intro">Récapitulatif des sommes dues au titre de la convention d'honoraires<span id="decProcTxt"> et des frais d'acte authentique</span>.</p>
+
+  <table class="grid">
+    <tr class="grouprow"><td>Nature</td><td class="gch">HT</td><td class="gch">TVA</td><td class="gch">TTC</td></tr>
+    <tr><td class="label">Honoraires (certification &amp; légalisation)</td>
+        <td class="tot" id="dHonHT">- €</td><td class="tot" id="dHonTVA">- €</td><td class="tot" id="dHonTTC">- €</td></tr>
+    <tr id="dEmolRow"><td class="label">Frais d'acte authentique</td>
+        <td class="tot" id="dEmolHT">- €</td><td class="tot" id="dEmolTVA">- €</td><td class="tot" id="dEmolTTC">- €</td></tr>
+    <tr id="dDroitRow"><td class="label">Droit d'enregistrement sur état<small id="dDroitDet"></small></td>
+        <td class="tot">&mdash;</td><td class="tot">&mdash;</td><td class="tot" id="dDroitTTC">25,00 €</td></tr>
+  </table>
+
+  <div class="totals" style="width:300px">
+    <div class="row ttc"><span class="lab">Total TTC à régler</span><span class="v" id="dTTC">- €</span></div>
+  </div>
+
+  <div class="pay" style="margin-top:22px">
+    <div class="t">Règlement par virement (ou carte bancaire le jour de la signature)</div>
+    <div class="rib">
+      coordonnées du compte à créditer :<br>
+      FIDAL NOTAIRES - PARIS — COMPTE DCN — 3 PLACE DE LA MADELEINE — 75008 PARIS<br>
+      Banque : Caisse des Dépôts (DRFIP Paris)<br>
+      IBAN : FR0340031000010000119775P33 &nbsp;·&nbsp; BIC : CDCGFRPPXXX
+    </div>
+  </div>
+</div>
+</div><!-- /docArea -->
+
+<script>
+  const fmt=n=>{n=Math.round(n); return n===0 ? '- €' : n.toLocaleString('fr-FR')+' €';};
+  const fmt2=n=>n===0 ? '- €' : n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+  const num=v=>{const n=parseFloat(String(v).replace(/[^\d.,-]/g,'').replace(',','.'));return isNaN(n)?0:n;};
+  let honHT=0, emolHT=0;
+  const COPIE_PAGE_HT=1.00; /* tarif copie authentique, € HT/page (non modifiable) */
+  const FORM_HT=11.24; /* émolument de formalités/lettres, € HT (fixe) */
+  const DROIT=25.00; /* droit d'enregistrement sur état, € (taxe, hors TVA) */
+  const ACTE_HT=26.41; /* émolument de l'acte de procuration, € HT (fixe, tarif réglementé) */
+  function recalc(){
+    let cert=0, leg=0;
+    document.querySelectorAll('[data-q]').forEach(inp=>{
+      const q=Math.max(0,Math.floor(num(inp.value))); const u=parseFloat(inp.dataset.u);
+      const line=q*u;
+      inp.closest('tr').querySelector('[data-line]').textContent=fmt(line);
+      if(inp.dataset.grp==='cert') cert+=line; else leg+=line;
+    });
+    document.getElementById('stCert').textContent=fmt(cert);
+    document.getElementById('stLeg').textContent=fmt(leg);
+    const ht=cert+leg, tva=ht/5, ttc=ht+tva;
+    document.getElementById('totHT').textContent=fmt(ht);
+    document.getElementById('tva').textContent=fmt(tva);
+    document.getElementById('ttc').textContent=fmt(ttc);
+    honHT=ht; recalcDecompte();
+  }
+  function syncClient(){
+    const c=document.getElementById('client').value.trim();
+    document.getElementById('clientTxt').textContent = c?('Client : '+c):'';
+  }
+  document.getElementById('dateTxt').textContent=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  document.querySelectorAll('[data-q]').forEach(i=>i.addEventListener('change',recalc));
+  document.getElementById('client').addEventListener('input',syncClient);
+  function pdfName(){var c=(document.getElementById('client').value||'').trim().replace(/[\/:*?"<>|]/g,'').trim()||'client'; return "Convention d'honoraires - "+c+".pdf";}
+  function mailFields(){
+    var cli=(document.getElementById('client').value||'').trim()||'le client';
+    var to=(document.getElementById('emailTo').value||'').trim();
+    var cc=[(document.getElementById('emailCc1').value||'').trim(),(document.getElementById('emailCc2').value||'').trim()].filter(Boolean).join(',');
+    var subject="Convention d'honoraires \u2013 "+cli;
+    var body="Chère Madame, Cher Monsieur,\n\nEn vue de la tenue du rendez-vous convenu, je vous prie de trouver ci-joint le montant de provision sur frais que je vous remercie de bien vouloir m'adresser (ces frais ne comprenant pas ceux liés à l'éventuel établissement d'une procuration authentique).\n\nJe vous remercie par ailleurs de bien vouloir me retourner le présent décompte après l'avoir signé.\n\nRestant à votre disposition, je vous souhaite une bonne journée.";
+    return {to:to,cc:cc,subject:subject,body:body};
+  }
+  function visibleSheets(){return [].slice.call(document.querySelectorAll('#docArea .sheet')).filter(function(s){return s.offsetParent!==null;});}
+  async function buildPdfDoc(){
+    document.body.classList.add('pdfmode');
+    try{
+      var pw=210, ph=297;
+      var sheets=visibleSheets(), canvases=[];
+      for(var i=0;i<sheets.length;i++){
+        canvases.push(await html2pdf().set({html2canvas:{scale:2, useCORS:true, backgroundColor:'#ffffff'}}).from(sheets[i]).toCanvas().get('canvas'));
+      }
+      var tmp=document.createElement('div'); tmp.textContent='.'; tmp.style.cssText='width:40px;height:18px'; document.body.appendChild(tmp);
+      var pdf=await html2pdf().set({jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(tmp).toPdf().get('pdf');
+      tmp.remove();
+      pdf.deletePage(1);
+      for(var j=0;j<canvases.length;j++){
+        var cv=canvases[j], img=cv.toDataURL('image/jpeg',0.96);
+        var iw=pw, ih=cv.height*pw/cv.width;
+        if(ih>ph){ ih=ph; iw=cv.width*ph/cv.height; }
+        pdf.addPage();
+        pdf.addImage(img,'JPEG',(pw-iw)/2,0,iw,ih);
+      }
+      return pdf;
+    } finally { document.body.classList.remove('pdfmode'); }
+  }
+  async function buildPdfBlob(){ var pdf=await buildPdfDoc(); return pdf.output('blob'); }
+  function downloadBlob(blob,name){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href);},4000);}
+  function openMailto(f){var mailto='mailto:'+f.to+'?cc='+encodeURIComponent(f.cc)+'&subject='+encodeURIComponent(f.subject)+'&body='+encodeURIComponent(f.body);var a=document.createElement('a');a.href=mailto;document.body.appendChild(a);a.click();a.remove();}
+  async function generatePdf(){
+    if(window.html2pdf){
+      try{ var pdf=await buildPdfDoc(); downloadBlob(pdf.output('blob'), pdfName()); return; }catch(e){}
+    }
+    window.print();
+  }
+  async function sendMail(){
+    var f=mailFields(), name=pdfName();
+    if(window.html2pdf && navigator.canShare){
+      try{
+        var blob=await buildPdfBlob();
+        var file=new File([blob],name,{type:'application/pdf'});
+        if(navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:f.subject,text:f.body}); return; }
+        downloadBlob(blob,name);
+      }catch(e){}
+    }
+    openMailto(f);
+  }
+  async function sendYousign(){
+    try{ if(window.html2pdf){ var blob=await buildPdfBlob(); downloadBlob(blob,pdfName()); } }catch(e){}
+    window.open('https://app.yousign.com','_blank','noopener');
+  }
+  document.getElementById('pdfBtn').addEventListener('click',generatePdf);
+  document.getElementById('mailBtn').addEventListener('click',sendMail);
+  document.getElementById('sendBtn').addEventListener('click',sendYousign);
+  // logo page 2 (réutilise l'image intégrée)
+  const l2=document.getElementById('logo2'); if(l2) l2.src=document.querySelector('#sheet .logo img').src;
+  document.getElementById('dateTxt2').textContent=document.getElementById('dateTxt').textContent;
+  function syncClient2(){ const c=document.getElementById('client').value.trim(); const v=c?('Client : '+c):''; const t2=document.getElementById('clientTxt2'); if(t2) t2.textContent=v; const t3=document.getElementById('clientTxt3'); if(t3) t3.textContent=v; }
+  function recalcEmol(){
+    const nb=Math.max(0,Math.floor(num(document.getElementById('procNb').value)));
+    const pages=Math.max(0,Math.floor(num(document.getElementById('procPages').value)));
+    const copies=nb;
+    const acte=ACTE_HT;
+    const acteTot=acte*nb;
+    const cp=COPIE_PAGE_HT;
+    const cpt=document.getElementById('eCopiePageTxt'); if(cpt) cpt.textContent=fmt2(cp);
+    const form=FORM_HT, droit=DROIT*nb;
+    const copiesTot=pages*copies*cp;
+    document.getElementById('eDetail').textContent='('+pages+' page'+(pages>1?'s':'')+')';
+    document.getElementById('eNbAff').textContent=nb||'\u2014';
+    document.getElementById('eNbProc').textContent=nb||'\u2014';
+    document.getElementById('eActeTot').textContent=fmt2(acteTot);
+    document.getElementById('eCopiesTot').textContent=fmt2(copiesTot);
+    document.getElementById('eFormTot').textContent=fmt2(form);
+    const ht=acteTot+copiesTot+form, tva=ht/5, ttc=ht+tva+droit;
+    document.getElementById('eHT').textContent=fmt2(ht);
+    document.getElementById('eTVA').textContent=fmt2(tva);
+    document.getElementById('eDroit').textContent=fmt2(droit);
+    document.getElementById('eTTC').textContent=fmt2(ttc);
+    emolHT=ht; recalcDecompte();
+  }
+  function recalcDecompte(){
+    const proc=document.getElementById('procSel').value==='oui';
+    const hHT=honHT, hTVA=hHT/5, hTTC=hHT+hTVA;
+    const eHTv=proc?emolHT:0, eTVA=eHTv/5;
+    const nb=proc?Math.max(0,Math.floor(num(document.getElementById('procNb').value))):0;
+    const droit=DROIT*nb;
+    const eTTC=eHTv+eTVA;
+    const set=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=fmt2(v);};
+    set('dHonHT',hHT); set('dHonTVA',hTVA); set('dHonTTC',hTTC);
+    set('dEmolHT',eHTv); set('dEmolTVA',eTVA); set('dEmolTTC',eTTC);
+    set('dDroitTTC',droit);
+    const dd=document.getElementById('dDroitDet'); if(dd) dd.textContent=nb>1?' ('+nb+' × 25 €)':'';
+    const er=document.getElementById('dEmolRow'); if(er) er.classList.toggle('hidden',!proc);
+    const dr=document.getElementById('dDroitRow'); if(dr) dr.classList.toggle('hidden',!proc);
+    const pt=document.getElementById('decProcTxt'); if(pt) pt.classList.toggle('hidden',!proc);
+    const gTTC=hTTC+eTTC+droit;
+    set('dTTC',gTTC);
+  }
+  function syncProc(){
+    const on=document.getElementById('procSel').value==='oui';
+    document.querySelectorAll('.proc-fld').forEach(e=>e.classList.toggle('hidden',!on));
+    document.getElementById('emolBlock').classList.toggle('hidden',!on);
+    if(on) recalcEmol();
+    recalcDecompte();
+  }
+  document.getElementById('procSel').addEventListener('change',syncProc);
+  ['procNb','procPages'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('input',recalcEmol);el.addEventListener('change',recalcEmol);});
+  function syncPays(){var s=document.getElementById('pays'),t=document.getElementById('paysTxt'); if(t) t.textContent=(s&&s.value)?s.value:'—';}
+  document.getElementById('pays').addEventListener('change',syncPays);
+  document.getElementById('client').addEventListener('input',syncClient2);
+  syncClient2(); recalcEmol(); syncProc(); syncPays();
+  recalc(); syncClient();
+</script>
+</body>
+</html>
