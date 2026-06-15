@@ -108,7 +108,10 @@
   .card .hint{font-size:12px;color:var(--ink-soft);margin-bottom:18px}
 
   label.f{display:block;margin-bottom:16px}
-  label.f .lab{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;font-weight:500;color:var(--ink-soft);margin-bottom:6px}
+  label.f .lab{display:flex;align-items:center;justify-content:flex-start;gap:7px;flex-wrap:wrap;font-size:12.5px;font-weight:500;color:var(--ink-soft);margin-bottom:6px}
+  label.f .lab>span{font-weight:400;color:var(--faint)}
+  .sectitle{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin:0 0 15px;padding:7px 0 7px 11px;border-left:3px solid var(--accent);font-size:13px;font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.045em}
+  .sectitle > span{font-size:11px;font-weight:400;color:var(--faint);text-transform:none;letter-spacing:0}
   .microhint{display:block;margin-top:7px;font-size:11px;line-height:1.45;color:var(--faint)}
   .microhint:empty{display:none}
   .priceField{position:relative}
@@ -118,7 +121,7 @@
     font-family:inherit;font-size:15px;color:var(--ink);transition:.14s;
   }
   input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-  .euro{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;font-size:22px;color:var(--ink-soft)}
+  .euro{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;font-size:16px;color:var(--faint)}
 
   .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
   .seg button{flex:1;padding:10px;border:none;background:transparent;font-family:inherit;font-size:13.5px;font-weight:500;color:var(--ink-soft);cursor:pointer;transition:.14s}
@@ -157,6 +160,18 @@
   .lines li:last-child{border-bottom:none}
   .lines .k{color:var(--ink-soft)}
   .lines .k small{display:block;font-size:11px;opacity:.8}
+
+  .remise-box{margin-top:16px;border:1px solid #C99A2E66;background:#C99A2E12;border-radius:11px;padding:13px 15px}
+  .remise-warn{font-size:12.5px;color:#7a5a12;line-height:1.5;margin-bottom:11px}
+  .remise-warn .warn-ico{margin-right:3px}
+  .remise-grid{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:11px}
+  .remise-grid th{text-align:left;font-weight:600;color:var(--ink);border-bottom:1px solid #C99A2E55;padding:5px 0}
+  .remise-grid th:last-child,.remise-grid td:last-child{text-align:right;white-space:nowrap}
+  .remise-grid td{padding:4px 0;color:var(--ink-soft);border-bottom:1px solid #C99A2E2e}
+  .remise-grid tr:last-child td{border-bottom:none}
+  .remise-max{font-size:12.5px;color:var(--ink);line-height:1.55}
+  .remise-max span{color:var(--ink-soft);font-size:12px}
+  .remise-note{margin-top:9px;font-size:11px;color:#7a5a12;font-style:italic;line-height:1.45}
   .lines .v{font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
   .lines li.group{margin-top:10px}
   .lines li.group .k{color:var(--heading);font-weight:600}
@@ -249,9 +264,13 @@ const eur = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',
 const eur2 = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(n||0);
 const pctf = n => new Intl.NumberFormat('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n)+' %';
 
+/* Arrondi de provision : à la centaine d'euros supérieure, sauf si le total est < 500 € (montant exact) */
+function provision(total){ return total<500 ? Math.round(total) : Math.ceil(total/100)*100; }
+
 /* ---- Barème émoluments proportionnels (art. A444-91), HT ---- */
+const EMOL_VENTE=[[6500,.0387],[17000,.01596],[60000,.01064],[Infinity,.00799]];
 function emolumentsHT(prix){
-  const tr=[[6500,.0387],[17000,.01596],[60000,.01064],[Infinity,.00799]];
+  const tr=EMOL_VENTE;
   let prev=0,e=0;
   for(const [up,rate] of tr){
     if(prix>prev){ e += (Math.min(prix,up)-prev)*rate; prev=up; } else break;
@@ -282,7 +301,7 @@ const moduleImmo = {
   id:'immo', label:"Frais d'acquisition", desc:"Bâti, VEFA, neuf, terrain ; primo‑accédant, mobilier, garantie de prêt.",
   state:{ prix:250000, mobilier:0, type:'bati', primo:false, dept:'75', dmto:0.0632, override:false,
           financement:'sans', pretAutres:0, pretAides:0,
-          remise:0, debours:1100, deboursGar:300 },
+          usage:'resid', emolRetenu:null, debours:1100, deboursGar:300 },
 
   render(){
     const s=this.state;
@@ -300,6 +319,8 @@ const moduleImmo = {
           </button>
           <div class="vtxt" id="vtxt"><b>Dictée vocale</b><br>« bien ancien à 320 000 euros, primo‑accédant »</div>
         </div>
+
+        <span class="sectitle">Le bien <span>nature, valeur, localisation</span></span>
 
         <label class="f">
           <span class="lab">Prix de l'acquisition</span>
@@ -324,6 +345,14 @@ const moduleImmo = {
           </select>
         </label>
 
+        <label class="f">
+          <span class="lab">Usage du bien <span>conditionne la remise au‑delà de 10 M€</span></span>
+          <div class="seg" id="usage">
+            <button data-v="resid" class="${s.usage!=='nonresid'?'on':''}">Résidentiel</button>
+            <button data-v="nonresid" class="${s.usage==='nonresid'?'on':''}">Non résidentiel</button>
+          </div>
+        </label>
+
         <label class="f" id="primoWrap">
           <span class="lab">Primo‑accédant <span>résidence principale</span></span>
           <div class="seg" id="primo">
@@ -342,6 +371,8 @@ const moduleImmo = {
           <span class="lab" style="font-weight:400;text-transform:none"><input type="checkbox" id="forceChk" ${s.override?'checked':''}> Forcer un autre taux DMTO</span>
           <input type="text" inputmode="decimal" id="dmtoCustom" value="6,32" style="display:${s.override?'block':'none'}">
         </label>
+
+        <span class="sectitle" style="margin-top:6px;border-top:1px solid var(--line);padding-top:14px">Financement <span>emprunt et garantie</span></span>
 
         <label class="f">
           <span class="lab">Financement</span>
@@ -369,10 +400,6 @@ const moduleImmo = {
           <summary>Options avancées</summary>
           <div class="advgrid">
             <label class="f" style="margin:0">
-              <span class="lab">Remise émoluments <span>0–20 %</span></span>
-              <input type="text" inputmode="numeric" id="remise" value="${s.remise}">
-            </label>
-            <label class="f" style="margin:0">
               <span class="lab">Débours vente</span>
               <input type="text" inputmode="numeric" id="debours" value="${s.debours.toLocaleString('fr-FR')}">
             </label>
@@ -382,6 +409,13 @@ const moduleImmo = {
             </label>
           </div>
         </details>
+
+        <div id="remiseZone"></div>
+        <label class="f" id="emolRetenuWrap" style="display:none;margin-top:2px">
+          <span class="lab">Émolument d'acte à retenir <span>HT · défaut = montant non remisé · interne</span></span>
+          <div class="priceField"><input type="text" inputmode="numeric" id="emolRetenu" placeholder=""><span class="euro">€</span></div>
+          <span class="microhint">Champ interne — ne figure pas sur l'estimation remise au client.</span>
+        </label>
       </section>
 
       <section class="card" id="resultCard">
@@ -390,6 +424,8 @@ const moduleImmo = {
         <div id="results"></div>
         <div class="actions">
           <button class="btn" id="copy">Copier le détail</button>
+          <button class="btn ghost" id="pdf">Exporter PDF</button>
+          <button class="btn ghost" id="pdfmail">Envoyer par mail</button>
           <button class="btn ghost" id="reset">Réinitialiser</button>
         </div>
       </section>
@@ -410,14 +446,18 @@ const moduleImmo = {
     let emHT=emolumentsHT(base);
     emHT=Math.min(emHT, base*0.10);
     if(base>0) emHT=Math.max(emHT,90);
-    const fractionHaute = base>100000 ? (base-100000)*0.00799 : 0;
-    const remiseHT = fractionHaute * (s.remise/100);
-    const emHTnet = emHT - remiseHT;
+    const eligRemise = (s.usage==='nonresid');
+    const remiseMaxImmo = remiseMaxHT(base, EMOL_VENTE, eligRemise);
+    const remiseInterImmo = 0.10*remisePart100(base, EMOL_VENTE);
+    const remise = remiseMaxImmo>0 ? {show:true, emolHT:emHT, remiseMax:remiseMaxImmo, net:emHT-remiseMaxImmo, remiseInter:remiseInterImmo, netInter:emHT-remiseInterImmo, tiers:remiseTiers(eligRemise), warn:"L'assiette de la vente est d'un montant supérieur à 100 000 € : les émoluments d'acte peuvent faire l'objet d'une remise, avec l'accord de l'associé en charge du dossier.", note: eligRemise ? "Bien à usage non résidentiel : taux majorés admis (40 % au‑delà de 10 M€, négociation libre au‑delà de 200 000 € d'émolument — R444‑10 II 1°). Pour une transmission de parts/actions de société ou de biens affectés à l'exploitation d'une entreprise, voir le régime Dutreil (art. 787 B/C, R444‑10 II 3° — simulateur « Donation avec Dutreil »)." : null} : null;
+    // émolument effectivement retenu (remise décidée avec l'associé) ; défaut = émolument plein
+    const emHTnet = (remise && s.emolRetenu!=null && isFinite(s.emolRetenu)) ? Math.max(0,Math.min(s.emolRetenu,emHT)) : emHT;
+    const remiseAppl = emHT - emHTnet;
     const tva = emHTnet*0.20;
     const emTTC = emHTnet+tva;
-    lines.push({group:true,k:'Émoluments du notaire (vente)',v:eur(emTTC)});
+    lines.push({group:true,k:'Émoluments d\'acte (vente)',v:eur(emTTC)});
     lines.push({sub:true,k:'Émoluments proportionnels HT',note: mob>0?'assiette nette de mobilier':null,v:eur2(emHT)});
-    if(remiseHT>0) lines.push({sub:true,discount:true,k:`Remise ${s.remise} % (fraction > 100 000 €)`,v:'– '+eur2(remiseHT)});
+    if(remiseAppl>0.005) lines.push({sub:true,discount:true,k:'Remise sur émoluments',v:'– '+eur2(remiseAppl)});
     lines.push({sub:true,k:'TVA 20 %',v:eur2(tva)});
 
     // 2. Droits & taxes (mutation)
@@ -464,7 +504,535 @@ const moduleImmo = {
     }
 
     const total=emTTC+mutation+csi+debours+garTotal;
-    return {lines,total,base:prix};
+    return {lines,total,base:prix,remise,emolFull:emHT};
+  }
+};
+
+/* ====================  MODULE : DONATION  ====================
+   Frais d'une donation entre vifs :
+   - Émoluments du notaire : art. A444-67 C. com., sur la VALEUR EN PLEINE
+     PROPRIÉTÉ (y compris en cas de réserve d'usufruit). Barème propre, distinct
+     de la vente, + TVA 20 %.
+   - Droits de donation (DMTG) : art. 777 CGI (barème 2026 inchangé), après
+     abattement selon le lien de parenté ; démembrement art. 669 CGI.
+   - Frais annexes : CSI 0,10 % (immeubles) + débours/formalités.
+   ============================================================ */
+
+/* Barèmes d'émoluments de donation (art. A444-67, arrêté 28 févr. 2020) */
+const EMOL_DON_1=[[6500,.04837],[17000,.01995],[60000,.01330],[Infinity,.00998]];   // 1° donation acceptée
+const EMOL_DON_4=[[6500,.02322],[17000,.00958],[60000,.00639],[Infinity,.00479]];   // 4° uniquement espèces/créances/valeurs mobilières cotées
+
+/* Émoluments proportionnels de donation, HT, sur la pleine propriété */
+function emolDonationHT(v, tr){
+  tr = tr || EMOL_DON_1;
+  let prev=0,e=0;
+  for(const [up,rate] of tr){ if(v>prev){ e+=(Math.min(v,up)-prev)*rate; prev=up; } else break; }
+  return e;
+}
+
+/* ---- Remise sur émolument d'acte (art. L444-2, R444-10, A444-174) ----
+   20 % au-delà de 100 000 € d'assiette : applicable à TOUTES les prestations proportionnelles.
+   40 % au-delà de 10 M€ ET négociation libre au-delà de 200 000 € d'émolument :
+   RÉSERVÉS aux biens à usage non résidentiel, résidentiel social, ou aux transmissions
+   de parts/actions/biens exonérés Dutreil (787 B/C) — paramètre `elig`.
+   La remise n'est jamais appliquée d'office : c'est un encart informatif. */
+function emolCumul(v, tr){
+  let prev=0,e=0;
+  for(const [up,rate] of tr){ if(v>prev){ e+=(Math.min(v,up)-prev)*rate; prev=up; } else break; }
+  return e;
+}
+/* Part d'émolument afférente à l'assiette > 100 000 € (base de la remise à taux libre ≤ 20 %) */
+function remisePart100(assiette, tr){
+  const S1=100000;
+  if(!(assiette>S1)) return 0;
+  return emolCumul(assiette,tr) - emolCumul(S1,tr);
+}
+function remiseTiers(elig){
+  return elig ? [
+    ["0 → 100 000 € d'assiette","—"],
+    ["100 000 → 10 000 000 €","20 %"],
+    ["au-delà de 10 000 000 €","40 %"],
+    ["part d'émolument > 200 000 €","100 % (négociable)"]
+  ] : [
+    ["0 → 100 000 € d'assiette","—"],
+    ["au-delà de 100 000 €","20 %"]
+  ];
+}
+function remiseMaxHT(assiette, tr, elig){
+  const S1=100000, S2=10000000, SE=200000;
+  if(!(assiette>S1)) return 0;
+  const cTot=emolCumul(assiette,tr);
+  const c1=emolCumul(Math.min(assiette,S1),tr);
+  if(!elig) return 0.20*(cTot-c1);                         // résidentiel ordinaire / donation ordinaire : 20 % seulement
+  const c2=emolCumul(Math.min(assiette,S2),tr);
+  const remiseTranches = 0.20*(c2-c1) + 0.40*(cTot-c2);    // 20 % puis 40 % par seuil d'assiette
+  const exces200 = Math.max(cTot-SE,0);                    // part d'émolument > 200 000 € → 100 % (négociable)
+  return Math.min(cTot-c1, Math.max(remiseTranches, exces200));
+}
+
+/* Barème progressif générique (DMTG) */
+function baremeDMTG(base, tr){
+  let prev=0,d=0;
+  for(const [up,rate] of tr){ if(base>prev){ d+=(Math.min(base,up)-prev)*rate; prev=up; } else break; }
+  return d;
+}
+
+/* Fraction nue-propriété selon l'âge de l'usufruitier (art. 669 I CGI) */
+function fractionNP(age){
+  if(age<21) return .10; if(age<31) return .20; if(age<41) return .30;
+  if(age<51) return .40; if(age<61) return .50; if(age<71) return .60;
+  if(age<81) return .70; if(age<91) return .80; return .90;
+}
+
+const BAR_LD=[[8072,.05],[12109,.10],[15932,.15],[552324,.20],[902838,.30],[1805677,.40],[Infinity,.45]];
+const BAR_EP=[[8072,.05],[15932,.10],[31865,.15],[552324,.20],[902838,.30],[1805677,.40],[Infinity,.45]]; // tableau II : époux / PACS
+const BAR_FS=[[24430,.35],[Infinity,.45]];
+const BAR_NV=[[Infinity,.55]];
+const BAR_TI=[[Infinity,.60]];
+
+/* [abattement, barème] par lien de parenté (art. 777 et 779/790 CGI). Tiers : pas d'abattement en donation. */
+const LIENS={
+  enfant:     {label:'Enfant / parent (ligne directe)', ab:100000, bareme:'LD'},
+  petitenfant:{label:'Petit-enfant',                     ab:31865,  bareme:'LD'},
+  apetitenfant:{label:'Arrière-petit-enfant',            ab:5310,   bareme:'LD'},
+  epoux:      {label:'Époux / partenaire de PACS',       ab:80724,  bareme:'EP'},
+  frere:      {label:'Frère ou sœur',                    ab:15932,  bareme:'FS'},
+  neveu:      {label:'Neveu / nièce',                    ab:7967,   bareme:'NV'},
+  tiers:      {label:'Autre / sans lien de parenté',     ab:0,      bareme:'TI'},
+};
+const BAR_LBL={LD:'ligne directe',EP:'époux/PACS',FS:'frères/sœurs (35–45 %)',NV:'neveux/nièces (55 %)',TI:'tiers (60 %)'};
+
+const moduleDonation = {
+  id:'donation', label:'Frais de donation',
+  desc:"Émoluments sur la valeur transmise + droits selon le lien de parenté et les abattements.",
+  state:{ lien:'enfant', donateurs:1, donataires:1, partD1:50, ageUsuf2:71,
+          immeuble:true, valImmeuble:300000, usage:'resid', societe:false, valSociete:0,
+          liquidites:false, valLiquidites:0,
+          demembre:false, ageUsuf:71, handicap:false, donFamilial:false, debours:400, emolRetenu:null,
+          donAnt:[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]] },
+
+  render(){
+    const s=this.state;
+    const optLien=Object.entries(LIENS).map(([k,v])=>`<option value="${k}" ${s.lien===k?'selected':''}>${v.label}</option>`).join('');
+    return `
+    <div class="grid">
+      <section class="card">
+        <h2>Paramètres de la donation</h2>
+        <div class="hint">Donateurs, biens donnés et donataires.</div>
+
+        <div style="margin-bottom:4px">
+          <span class="sectitle">Donateurs <span>nombre, quote-part, usufruit réservé</span></span>
+
+          <label class="f">
+            <span class="lab">Nombre de donateurs</span>
+            <div class="seg" id="d_donateurs">
+              <button data-v="1" class="${(s.donateurs||1)===1?'on':''}">1</button>
+              <button data-v="2" class="${(s.donateurs||1)===2?'on':''}">2</button>
+            </div>
+          </label>
+
+          <label class="f" id="d_partWrap" style="display:${(s.donateurs||1)===2?'block':'none'}">
+            <span class="lab" style="justify-content:flex-start;gap:7px">Quote-part du 1er donateur <span style="color:var(--faint);font-weight:400">dans les biens transmis</span></span>
+            <div class="priceField">
+              <input type="text" inputmode="numeric" id="d_partD1" value="${s.partD1||50}">
+              <span class="euro" style="font-size:18px">%</span>
+            </div>
+            <span class="microhint" id="d_partHint"></span>
+          </label>
+
+          <label class="f">
+            <span class="lab">Quotité transmise</span>
+            <div class="seg" id="d_dem">
+              <button data-v="pp" class="${!s.demembre?'on':''}">Pleine propriété</button>
+              <button data-v="np" class="${s.demembre?'on':''}">Nue-propriété</button>
+            </div>
+          </label>
+
+          <div id="d_ageWrap" style="display:${s.demembre?'block':'none'}">
+            <label class="f">
+              <span class="lab">Âge de l'usufruitier <span id="d_ageLab">donateur réservataire</span></span>
+              <input type="text" inputmode="numeric" id="d_age" value="${s.ageUsuf}">
+              <span class="microhint" id="d_ageHint"></span>
+            </label>
+            <label class="f" id="d_age2Wrap" style="display:${(s.donateurs||1)===2?'block':'none'}">
+              <span class="lab">Âge de l'usufruitier <span>2e donateur</span></span>
+              <input type="text" inputmode="numeric" id="d_age2" value="${s.ageUsuf2}">
+              <span class="microhint" id="d_age2Hint"></span>
+            </label>
+          </div>
+        </div>
+
+        <div style="border-top:1px solid var(--line);padding-top:16px;margin-bottom:4px">
+          <span class="sectitle">Biens donnés <span>valeur à retenir par catégorie</span></span>
+
+          <label class="f" style="margin-bottom:8px">
+            <span class="lab">Immeuble</span>
+            <div class="seg" id="d_immeuble">
+              <button data-v="non" class="${!s.immeuble?'on':''}">Non</button>
+              <button data-v="oui" class="${s.immeuble?'on':''}">Oui</button>
+            </div>
+          </label>
+          <label class="f" id="d_usageWrap" style="display:${s.immeuble?'block':'none'}">
+            <span class="lab">Usage de l'immeuble</span>
+            <div class="seg" id="d_usage">
+              <button data-v="resid" class="${s.usage!=='nonresid'?'on':''}">Résidentiel</button>
+              <button data-v="nonresid" class="${s.usage==='nonresid'?'on':''}">Non résidentiel</button>
+            </div>
+          </label>
+          <label class="f" id="d_immWrap" style="display:${s.immeuble?'block':'none'}">
+            <span class="lab">Valeur de l'immeuble <span>pleine propriété</span></span>
+            <div class="priceField">
+              <input type="text" inputmode="numeric" id="d_valImmeuble" value="${(s.valImmeuble||0).toLocaleString('fr-FR')}">
+              <span class="euro">€</span>
+            </div>
+          </label>
+
+          <label class="f" style="margin-bottom:8px">
+            <span class="lab" style="justify-content:flex-start;gap:7px">Société (parts / actions) <span style="color:var(--faint);font-weight:400">ou autres biens meubles</span></span>
+            <div class="seg" id="d_societe">
+              <button data-v="non" class="${!s.societe?'on':''}">Non</button>
+              <button data-v="oui" class="${s.societe?'on':''}">Oui</button>
+            </div>
+          </label>
+          <label class="f" id="d_socWrap" style="display:${s.societe?'block':'none'}">
+            <span class="lab">Valeur des parts / actions <span>ou autres biens meubles</span></span>
+            <div class="priceField">
+              <input type="text" inputmode="numeric" id="d_valSociete" value="${(s.valSociete||0).toLocaleString('fr-FR')}">
+              <span class="euro">€</span>
+            </div>
+          </label>
+          <span class="microhint" id="d_dutreilHint" style="display:${s.societe?'block':'none'}">Transmission d'entreprise sous pacte Dutreil (exonération 75 %) : utilisez le simulateur « Donation avec Dutreil » dans l'onglet Patrimoine technique.</span>
+
+          <label class="f" style="margin-bottom:8px">
+            <span class="lab" style="justify-content:flex-start;gap:7px">Liquidités <span style="color:var(--faint);font-weight:400">espèces, créances, valeurs cotées</span></span>
+            <div class="seg" id="d_liquidites">
+              <button data-v="non" class="${!s.liquidites?'on':''}">Non</button>
+              <button data-v="oui" class="${s.liquidites?'on':''}">Oui</button>
+            </div>
+          </label>
+          <label class="f" id="d_liqWrap" style="display:${s.liquidites?'block':'none'}">
+            <span class="lab">Montant <span>barème émol. réduit (4°)</span></span>
+            <div class="priceField">
+              <input type="text" inputmode="numeric" id="d_valLiquidites" value="${(s.valLiquidites||0).toLocaleString('fr-FR')}">
+              <span class="euro">€</span>
+            </div>
+          </label>
+        </div>
+
+        <div style="border-top:1px solid var(--line);padding-top:16px;margin-bottom:4px">
+          <span class="sectitle">Donataires <span>lien, nombre, donations antérieures</span></span>
+
+          <label class="f">
+            <span class="lab">Lien de parenté <span>donateur → donataire</span></span>
+            <select id="d_lien">${optLien}</select>
+          </label>
+
+          <label class="f">
+            <span class="lab">Nombre de donataires</span>
+            <select id="d_donataires">${Array.from({length:10},(_,i)=>i+1).map(n=>`<option value="${n}" ${(s.donataires||1)===n?'selected':''}>${n}</option>`).join('')}</select>
+          </label>
+
+        <div class="f" id="d_antWrap" style="margin-top:4px">
+          <span class="lab" style="display:block;margin-bottom:4px">Donations reçues ces 15 dernières années <span style="color:var(--faint);font-weight:400;font-size:11px">par donataire · viennent en déduction de l'abattement (art. 784 CGI)</span></span>
+          <div id="d_antRows" style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
+            ${Array.from({length:10},(_,j)=>`
+              <div id="d_antRow${j}" style="display:${j<(s.donataires||1)?'flex':'none'};align-items:center;gap:10px">
+                <div style="font-size:13px;color:var(--ink-soft);font-weight:600;min-width:92px">Donataire ${j+1}</div>
+                <div style="flex:1;display:flex;gap:8px">
+                  <div style="flex:1">
+                    <div style="font-size:11px;color:var(--faint);margin-bottom:2px;display:${(s.donateurs||1)===2?'block':'none'}" id="d_antLabA${j}">Du donateur 1</div>
+                    <div class="priceField"><input type="text" inputmode="numeric" id="d_ant_0_${j}" value="${((s.donAnt&&s.donAnt[0]&&s.donAnt[0][j])||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+                  </div>
+                  <div style="flex:1;display:${(s.donateurs||1)===2?'block':'none'}" id="d_antColB${j}">
+                    <div style="font-size:11px;color:var(--faint);margin-bottom:2px">Du donateur 2</div>
+                    <div class="priceField"><input type="text" inputmode="numeric" id="d_ant_1_${j}" value="${((s.donAnt&&s.donAnt[1]&&s.donAnt[1][j])||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+                  </div>
+                </div>
+              </div>`).join('')}
+          </div>
+          <span class="microhint">Montant déjà donné par le même donateur au même donataire sur 15 ans (valeur taxable d'alors). 0 € si aucune. L'abattement n'est rouvert qu'au-delà de 15 ans.</span>
+        </div>
+        </div>
+
+        <details class="adv">
+          <summary>Options avancées</summary>
+          <div style="display:flex;flex-direction:column;gap:13px;margin-top:14px">
+            <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-soft);cursor:pointer">
+              <input type="checkbox" id="d_handicap" ${s.handicap?'checked':''}>
+              <span>Donataire handicapé <span style="color:var(--faint)">· abattement +159 325 €</span></span>
+            </label>
+            <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-soft);cursor:pointer">
+              <input type="checkbox" id="d_790" ${s.donFamilial?'checked':''}>
+              <span>Don familial de sommes <span style="color:var(--faint)">· abattement +31 865 €</span></span>
+            </label>
+          </div>
+          <span class="microhint">Don familial (art. 790 G) : donateur &lt; 80 ans, donataire majeur, sommes d'argent uniquement, cumulable et renouvelable tous les 15 ans.</span>
+        </details>
+
+        <div id="remiseZone"></div>
+        <label class="f" id="emolRetenuWrap" style="display:none;margin-top:2px">
+          <span class="lab">Émolument d'acte à retenir <span>HT · défaut = montant non remisé · interne</span></span>
+          <div class="priceField"><input type="text" inputmode="numeric" id="emolRetenu" placeholder=""><span class="euro">€</span></div>
+          <span class="microhint">Champ interne — ne figure pas sur l'estimation remise au client.</span>
+        </label>
+      </section>
+
+      <section class="card" id="resultCard">
+        <h2>Coût de la donation estimé</h2>
+        <div class="hint">Émoluments + droits + frais — généralement à la charge du donateur. Abattements renouvelables tous les 15 ans.</div>
+        <div id="results"></div>
+        <div class="actions">
+          <button class="btn" id="dcopy">Copier le détail</button>
+          <button class="btn ghost" id="dpdf">Exporter PDF</button>
+          <button class="btn ghost" id="dpdfmail">Envoyer par mail</button>
+          <button class="btn ghost" id="dreset">Réinitialiser</button>
+        </div>
+      </section>
+    </div>`;
+  },
+
+  compute(){
+    const s=this.state;
+    const imm = s.immeuble ? (s.valImmeuble||0) : 0;
+    const soc = s.societe ? (s.valSociete||0) : 0;
+    const liq = s.liquidites ? (s.valLiquidites||0) : 0;   // espèces, créances, valeurs mobilières cotées
+    const pp = imm + soc + liq;                            // valeur totale en pleine propriété
+    const lines=[];
+    if(!pp) return {lines,total:0,base:0};
+    // Barème d'émoluments réduit (art. A444-67, 4°) si la donation porte UNIQUEMENT sur espèces/créances/valeurs cotées
+    const emolTr = (imm===0 && soc===0 && liq>0) ? EMOL_DON_4 : EMOL_DON_1;
+    const L=LIENS[s.lien];
+    const nD=Math.max(1,Math.min(2,s.donateurs||1));   // 1 ou 2 donateurs
+    const nd=Math.max(1,s.donataires||1);              // nombre de donataires
+    const multi=(nD>1||nd>1);
+    const repartition = multi ? `${nD} donateur${nD>1?'s':''} × ${nd} donataire${nd>1?'s':''} — par part` : null;
+
+    // Quote-parts et âges par donateur
+    const p1 = (nD===2) ? Math.min(100,Math.max(0,s.partD1||50))/100 : 1;
+    const donors = (nD===2)
+      ? [{p:p1, age:s.ageUsuf||0}, {p:1-p1, age:s.ageUsuf2||0}]
+      : [{p:1, age:s.ageUsuf||0}];
+
+    // 0. Rappel de l'assiette par catégorie (si plusieurs)
+    const cats=[imm>0?["Immeuble",imm]:null, soc>0?["Parts / actions ou autres meubles",soc]:null, liq>0?["Espèces / valeurs cotées",liq]:null].filter(Boolean);
+    if(cats.length>1){
+      lines.push({group:true,k:'Biens donnés',v:eur(pp)});
+      cats.forEach(c=>lines.push({sub:true,k:c[0],v:eur2(c[1])}));
+    }
+
+    // 1. Émoluments du notaire — sur la PLEINE PROPRIÉTÉ, calculés PAR DONATEUR (art. A444-67)
+    let emHT=0, remiseMax=0, remiseInter=0;
+    donors.forEach(d=>{ emHT += emolDonationHT(pp*d.p, emolTr); remiseMax += remiseMaxHT(pp*d.p, emolTr, false); remiseInter += 0.10*remisePart100(pp*d.p, emolTr); });
+    const remiseNote = (s.immeuble && s.usage==='nonresid')
+      ? "Bien non résidentiel : le taux de 40 % n'est pas automatique en donation — il suppose une transmission de parts/actions de société ou de biens affectés à l'exploitation d'une entreprise, exonérés Dutreil (art. 787 B/C, R444‑10 II 3°). Voir le simulateur « Donation avec Dutreil »."
+      : null;
+    const remise = remiseMax>0 ? {show:true, emolHT:emHT, remiseMax, net:emHT-remiseMax, remiseInter, netInter:emHT-remiseInter, tiers:remiseTiers(false), warn:"L'assiette de la donation est d'un montant supérieur à 100 000 € : les émoluments d'acte peuvent faire l'objet d'une remise, avec l'accord de l'associé en charge du dossier.", note:remiseNote} : null;
+    const emHTnet = (remise && s.emolRetenu!=null && isFinite(s.emolRetenu)) ? Math.max(0,Math.min(s.emolRetenu,emHT)) : emHT;
+    const remiseAppl = emHT - emHTnet;
+    const tva = emHTnet*0.20;
+    const emTTC = emHTnet+tva;
+    const emNote = (emolTr===EMOL_DON_4 ? 'barème réduit (4°) · ' : '') + (nD>1?`${nD} donateurs · `:'') + 'valeur en pleine propriété' + (s.demembre?" (réserve d'usufruit incluse)":'');
+    lines.push({group:true,k:'Émoluments d\'acte (donation)',v:eur(emTTC)});
+    lines.push({sub:true,k:'Émoluments proportionnels HT',note:emNote,v:eur2(emHT)});
+    if(remiseAppl>0.005) lines.push({sub:true,discount:true,k:'Remise sur émoluments',v:'– '+eur2(remiseAppl)});
+    lines.push({sub:true,k:'TVA 20 %',v:eur2(tva)});
+
+    // 2. Droits de donation (DMTG, art. 777) — par couple donateur × donataire, avec rappel fiscal des 15 ans (art. 784)
+    const bareme = L.bareme==='LD'?BAR_LD : L.bareme==='EP'?BAR_EP : L.bareme==='FS'?BAR_FS : L.bareme==='NV'?BAR_NV : BAR_TI;
+    const abattCell = L.ab + (s.handicap?159325:0) + (s.donFamilial?31865:0);   // abattement par part (lien + options)
+    const DA = s.donAnt || [[],[]];
+    let droits=0, valeurTransmise=0, immTransmise=0, taxableTotal=0, abattApplique=0, priorTotal=0;
+    donors.forEach((d,i)=>{
+      const frac = s.demembre ? fractionNP(d.age) : 1;     // nue-propriété propre au donateur
+      const vDon = pp*d.p*frac;                            // valeur transmise par ce donateur
+      valeurTransmise += vDon;
+      immTransmise   += imm*d.p*frac;
+      const vCouple = vDon/nd;                             // part reçue par chaque donataire de ce donateur
+      for(let j=0;j<nd;j++){
+        const P = (DA[i] && DA[i][j]) || 0;                // donations antérieures (15 ans) de ce donateur à ce donataire
+        priorTotal += P;
+        const consoAnt = Math.max(P - abattCell, 0);       // fraction des dons antérieurs déjà taxée (consomme les tranches basses)
+        const abattRes = Math.max(abattCell - P, 0);       // abattement résiduel disponible
+        const taxNouv  = Math.max(vCouple - abattRes, 0);  // base taxable de la nouvelle donation
+        abattApplique += Math.min(abattRes, vCouple);
+        taxableTotal  += taxNouv;
+        droits += baremeDMTG(consoAnt + taxNouv, bareme) - baremeDMTG(consoAnt, bareme);
+      }
+    });
+    const ageNote = s.demembre
+      ? (nD===2 ? `art. 669 CGI — usufruitiers ${donors[0].age}/${donors[1].age} ans`
+                : `art. 669 CGI — usufruitier ${donors[0].age} ans → ${Math.round(fractionNP(donors[0].age)*100)} %`)
+      : null;
+    lines.push({group:true,k:'Droits de donation',note:repartition,v:eur(droits)});
+    if(s.demembre) lines.push({sub:true,k:'Valeur transmise (nue-propriété)',note:ageNote,v:eur2(valeurTransmise)});
+    if(priorTotal>0) lines.push({sub:true,k:'Donations antérieures (15 ans)',note:'art. 784 — réduisent l\'abattement et les tranches',v:eur2(priorTotal)});
+    lines.push({sub:true,discount:true,k:'Abattement appliqué'+(multi?' (total)':'')+(s.handicap||s.donFamilial?' cumulé':'')+` — ${L.label}`,note:multi?`base ${eur2(abattCell)} par part`:null,v:'– '+eur2(abattApplique)});
+    lines.push({sub:true,k:'Base taxable'+(multi?' totale':''),v:eur2(taxableTotal)});
+    lines.push({sub:true,k:`Droits — barème ${BAR_LBL[L.bareme]}`,v:eur2(droits)});
+
+    // 3. Taxe de publicité foncière (0,60 % + 2,37 % de frais d'assiette) et CSI — sur l'immeuble
+    let tpf=0, csi=0;
+    if(imm>0){
+      tpf = immTransmise*0.0060*1.0237;          // 0,60 % (art. 791 CGI) majorée du prélèvement de 2,37 %
+      csi = Math.max(immTransmise*0.0010,15);
+      lines.push({group:true,k:'Taxes de publicité foncière',note:'sur la valeur de l\'immeuble',v:eur(tpf+csi)});
+      lines.push({sub:true,k:'Taxe de publicité foncière',v:eur2(tpf)});
+      lines.push({sub:true,k:'Contribution de sécurité immobilière',v:eur2(csi)});
+    }
+
+    // 4. Débours & formalités
+    const emForm = 420, emFormTVA = emForm*0.20;          // émoluments de formalités (HT) + TVA 20 %
+    const debImm = imm>0?600:0;                            // forfait formalités immeuble
+    const debSoc = soc>0?800:0;                            // forfait formalités société
+    const deb = debImm+debSoc;
+    const debNote = [imm>0?'immeuble '+eur2(debImm):null, soc>0?'société '+eur2(debSoc):null].filter(Boolean).join(' + ') || null;
+    lines.push({group:true,k:'Débours & formalités',v:eur(emForm+emFormTVA+deb)});
+    lines.push({sub:true,k:'Émoluments de formalités HT',v:eur2(emForm)});
+    lines.push({sub:true,k:'TVA 20 %',v:eur2(emFormTVA)});
+    if(deb>0) lines.push({sub:true,k:'Débours / provision',note:debNote,v:eur2(deb)});
+
+    const total = emTTC + droits + tpf + csi + emForm + emFormTVA + deb;
+    return {lines,total,base:pp,remise,emolFull:emHT};
+  }
+};
+
+/* ====================  MODULE : DONATION AVEC DUTREIL  ====================
+   Transmission de titres de société opérationnelle sous pacte Dutreil :
+   - Exonération 75 % de la valeur (art. 787 B) → droits sur 25 %.
+   - Abattement selon le lien APRÈS l'exonération, puis barème art. 777.
+   - Réduction 50 % des droits si pleine propriété + donateur < 70 ans (art. 790).
+   - Émoluments du notaire sur la valeur PLEINE (art. A444-67, 1°) — non réduits.
+   ========================================================================== */
+const moduleDutreil = {
+  id:'dutreil', label:'Donation avec Dutreil',
+  desc:"Transmission de titres sous pacte Dutreil : exonération 75 %, abattement, réduction 50 %.",
+  state:{ valeur:1000000, lien:'enfant', donataires:1, demembre:false, ageUsuf:71, moins70:true, debours:400, emolRetenu:null },
+
+  render(){
+    const s=this.state;
+    const optLien=Object.entries(LIENS).map(([k,v])=>`<option value="${k}" ${s.lien===k?'selected':''}>${v.label}</option>`).join('');
+    return `
+    <div class="grid">
+      <section class="card">
+        <h2>Donation de titres — régime Dutreil</h2>
+        <div class="hint">Exonération 75 % (art. 787 B), abattement, puis réduction 50 % si pleine propriété et donateur &lt; 70 ans (art. 790).</div>
+
+        <span class="sectitle">Titres transmis <span>valeur et quotité</span></span>
+
+        <label class="f">
+          <span class="lab">Valeur des titres <span>pleine propriété</span></span>
+          <div class="priceField">
+            <input type="text" inputmode="numeric" id="du_valeur" value="${s.valeur.toLocaleString('fr-FR')}">
+            <span class="euro">€</span>
+          </div>
+        </label>
+
+        <label class="f">
+          <span class="lab">Quotité transmise</span>
+          <div class="seg" id="du_dem">
+            <button data-v="pp" class="${!s.demembre?'on':''}">Pleine propriété</button>
+            <button data-v="np" class="${s.demembre?'on':''}">Nue-propriété</button>
+          </div>
+        </label>
+
+        <label class="f" id="du_ageWrap" style="display:${s.demembre?'block':'none'}">
+          <span class="lab">Âge de l'usufruitier <span>donateur</span></span>
+          <input type="text" inputmode="numeric" id="du_age" value="${s.ageUsuf}">
+          <span class="microhint" id="du_ageHint"></span>
+        </label>
+
+        <span class="sectitle" style="margin-top:6px;border-top:1px solid var(--line);padding-top:14px">Donataires &amp; régime <span>lien, nombre, réduction</span></span>
+
+        <label class="f">
+          <span class="lab">Lien de parenté <span>donateur → donataire</span></span>
+          <select id="du_lien">${optLien}</select>
+        </label>
+
+        <label class="f">
+          <span class="lab">Nombre de donataires</span>
+          <select id="du_donataires">${Array.from({length:10},(_,i)=>i+1).map(n=>`<option value="${n}" ${(s.donataires||1)===n?'selected':''}>${n}</option>`).join('')}</select>
+        </label>
+
+        <label class="f">
+          <span class="lab">Donateur de moins de 70 ans <span>réduction 50 % en PP</span></span>
+          <div class="seg" id="du_moins70">
+            <button data-v="oui" class="${s.moins70?'on':''}">Oui</button>
+            <button data-v="non" class="${!s.moins70?'on':''}">Non</button>
+          </div>
+        </label>
+
+        <span class="microhint">Éligibilité au régime supposée acquise (engagement collectif puis individuel de conservation, fonction de direction — art. 787 B).</span>
+
+        <div id="remiseZone"></div>
+        <label class="f" id="emolRetenuWrap" style="display:none;margin-top:2px">
+          <span class="lab">Émolument d'acte à retenir <span>HT · défaut = montant non remisé · interne</span></span>
+          <div class="priceField"><input type="text" inputmode="numeric" id="emolRetenu" placeholder=""><span class="euro">€</span></div>
+          <span class="microhint">Champ interne — ne figure pas sur l'estimation remise au client.</span>
+        </label>
+      </section>
+
+      <section class="card" id="resultCard">
+        <h2>Coût estimé — donation Dutreil</h2>
+        <div class="hint">Exonération 75 % sur l'assiette des droits ; abattement appliqué ensuite.</div>
+        <div id="results"></div>
+        <div class="actions">
+          <button class="btn" id="ducopy">Copier le détail</button>
+          <button class="btn ghost" id="dupdf">Exporter PDF</button>
+          <button class="btn ghost" id="dupdfmail">Envoyer par mail</button>
+          <button class="btn ghost" id="dureset">Réinitialiser</button>
+        </div>
+      </section>
+    </div>`;
+  },
+
+  compute(){
+    const s=this.state;
+    const pp=s.valeur||0;
+    const lines=[];
+    if(!pp) return {lines,total:0,base:0};
+    const L=LIENS[s.lien];
+    const nd=Math.max(1,s.donataires||1);
+    const fracNP = s.demembre ? fractionNP(s.ageUsuf||0) : 1;
+    const valeurTransmise = pp*fracNP;
+    const assiette = valeurTransmise*0.25;     // 75 % exonéré (art. 787 B)
+    const bareme = L.bareme==='LD'?BAR_LD : L.bareme==='EP'?BAR_EP : L.bareme==='FS'?BAR_FS : L.bareme==='NV'?BAR_NV : BAR_TI;
+    const abattCell = L.ab;
+    const taxCouple = Math.max(assiette/nd - abattCell, 0);
+    const droitsAvantRed = baremeDMTG(taxCouple, bareme)*nd;
+    const reduction = (s.moins70 && !s.demembre);   // art. 790 : PP + donateur < 70 ans
+    const droits = reduction ? droitsAvantRed*0.5 : droitsAvantRed;
+
+    // Émoluments du notaire — sur la pleine propriété des titres (art. A444-67, 1°)
+    const emHT = emolDonationHT(pp, EMOL_DON_1);
+    const remiseMax = remiseMaxHT(pp, EMOL_DON_1, true);   // Dutreil : éligible 40 % / négociation libre (R444-10 II 3°)
+    const remiseInter = 0.10*remisePart100(pp, EMOL_DON_1);
+    const remise = remiseMax>0 ? {show:true, emolHT:emHT, remiseMax, net:emHT-remiseMax, remiseInter, netInter:emHT-remiseInter, tiers:remiseTiers(true), warn:"L'assiette de la donation est d'un montant supérieur à 100 000 € : transmission de parts/actions de société (Dutreil), éligible aux taux majorés (40 % au-delà de 10 M€, négociation libre au-delà de 200 000 € d'émolument). Remise avec l'accord de l'associé en charge du dossier."} : null;
+    const emHTnet = (remise && s.emolRetenu!=null && isFinite(s.emolRetenu)) ? Math.max(0,Math.min(s.emolRetenu,emHT)) : emHT;
+    const remiseAppl = emHT - emHTnet;
+    const tva = emHTnet*0.20, emTTC = emHTnet+tva;
+    lines.push({group:true,k:'Émoluments d\'acte (donation)',v:eur(emTTC)});
+    lines.push({sub:true,k:'Émoluments proportionnels HT',note:'valeur en pleine propriété des titres',v:eur2(emHT)});
+    if(remiseAppl>0.005) lines.push({sub:true,discount:true,k:'Remise sur émoluments',v:'– '+eur2(remiseAppl)});
+    lines.push({sub:true,k:'TVA 20 %',v:eur2(tva)});
+
+    lines.push({group:true,k:'Droits de donation',note:(nd>1?`${nd} donataires — par part`:null),v:eur(droits)});
+    if(s.demembre) lines.push({sub:true,k:'Valeur transmise (nue-propriété)',note:`art. 669 — usufruitier ${s.ageUsuf} ans → ${Math.round(fracNP*100)} %`,v:eur2(valeurTransmise)});
+    lines.push({sub:true,discount:true,k:'Exonération Dutreil 75 %',note:'art. 787 B',v:'– '+eur2(valeurTransmise*0.75)});
+    lines.push({sub:true,k:'Assiette taxable (25 %)',v:eur2(assiette)});
+    lines.push({sub:true,discount:true,k:`Abattement — ${L.label}`+(nd>1?' total':''),v:'– '+eur2(abattCell*nd)});
+    lines.push({sub:true,k:'Base taxable'+(nd>1?' totale':''),v:eur2(taxCouple*nd)});
+    lines.push({sub:true,k:`Droits — barème ${BAR_LBL[L.bareme]}`,v:eur2(droitsAvantRed)});
+    if(reduction) lines.push({sub:true,discount:true,k:'Réduction 50 % (donateur < 70 ans, PP)',note:'art. 790',v:'– '+eur2(droitsAvantRed*0.5)});
+
+    const emForm = 420, emFormTVA = emForm*0.20;          // émoluments de formalités (HT) + TVA 20 %
+    const deb = 800;     // forfait formalités société
+    lines.push({group:true,k:'Débours & formalités',v:eur(emForm+emFormTVA+deb)});
+    lines.push({sub:true,k:'Émoluments de formalités HT',v:eur2(emForm)});
+    lines.push({sub:true,k:'TVA 20 %',v:eur2(emFormTVA)});
+    lines.push({sub:true,k:'Débours / provision',note:'société '+eur2(800),v:eur2(deb)});
+
+    const total = emTTC + droits + emForm + emFormTVA + deb;
+    return {lines,total,base:pp,remise,emolFull:emHT};
   }
 };
 
@@ -525,7 +1093,7 @@ const CATEGORIES=[
   { id:'famille', label:'Famille', svg:ICON.family,
     desc:'Donations, successions, régimes matrimoniaux et partages.',
     calculators:[
-      soonCalc('donation','Frais de donation','Émoluments sur la valeur transmise + droits selon le lien de parenté et les abattements.'),
+      moduleDonation,
       soonCalc('succession','Frais de succession','Actif brut, acte de notoriété, attestation immobilière, TPF et CSI.'),
       soonCalc('regime','Liquidation de régime matrimonial','Communauté, récompenses et partage.'),
       soonCalc('partage','Partage','Droit de partage 2,5 % et émoluments.'),
@@ -548,6 +1116,7 @@ const CATEGORIES=[
   { id:'patrimoine', label:'Patrimoine technique', svg:ICON.coins,
     desc:'Évaluation, démembrement et fiscalité patrimoniale.',
     calculators:[
+      moduleDutreil,
       soonCalc('usufruit','Usufruit / nue-propriété','Barème fiscal (art. 669 CGI) selon l\'âge de l\'usufruitier.'),
       soonCalc('ifi','IFI','Assiette et barème de l\'impôt sur la fortune immobilière.'),
       soonCalc('reserve','Réserve & quotité disponible','Selon le nombre d\'enfants / héritiers.'),
@@ -615,19 +1184,138 @@ function renderResults(){
   const box=document.getElementById('results');
   if(!box) return;
   const r=active.compute();
+  const rz=document.getElementById('remiseZone');
+  const erw=document.getElementById('emolRetenuWrap');
+  const er=document.getElementById('emolRetenu');
   if(!r||!r.base){
     box.innerHTML='<div class="placeholder"><div class="big">En attente</div>Saisissez un prix pour estimer les frais.</div>';
+    if(rz) rz.innerHTML=''; if(erw) erw.style.display='none';
     return;
   }
-  const pct=r.base?(r.total/r.base*100):0;
+  const tot=provision(r.total);
+  const arrondi = r.total>=500;
+  const pct=r.base?(tot/r.base*100):0;
   box.innerHTML=`
-    <div class="total"><span class="lbl">Total estimé</span><span class="val">${eur(r.total)}</span></div>
-    <div class="pct">soit <b>${pctf(pct)}</b> du prix</div>
+    <div class="total"><span class="lbl">Total estimé</span><span class="val">${eur(tot)}</span></div>
+    <div class="pct">soit <b>${pctf(pct)}</b> du prix${arrondi?' · arrondi à la centaine sup.':''}</div>
     <ul class="lines">${r.lines.map(l=>`
       <li class="${l.group?'group':''} ${l.sub?'sub':''} ${l.discount?'discount':''}">
         <span class="k">${l.k}${l.note?`<small>${l.note}</small>`:''}</span>
         <span class="v">${l.v}</span>
       </li>`).join('')}</ul>`;
+  // Encart remise + émolument retenu : COLONNE DE GAUCHE (interne, non visible du client)
+  if(rz){
+    if(r.remise && r.remise.show){
+      rz.innerHTML=`
+        <div class="remise-box">
+          <div class="remise-warn"><span class="warn-ico">⚠️</span> ${r.remise.warn||"L'assiette est supérieure à 100 000 € : les émoluments d'acte peuvent faire l'objet d'une remise, avec l'accord de l'associé en charge du dossier."}</div>
+          <table class="remise-grid"><thead><tr><th>Part d'émolument afférente à l'assiette</th><th>Remise max</th></tr></thead><tbody>
+            ${r.remise.tiers.map(t=>`<tr><td>${t[0]}</td><td>${t[1]}</td></tr>`).join('')}
+          </tbody></table>
+          <div class="remise-max">Remise maximale possible : <b>− ${eur2(r.remise.remiseMax)}</b> → émolument <b>${eur2(r.remise.net)}</b> HT<br>
+          Remise intermédiaire (10 %) : <b>− ${eur2(r.remise.remiseInter)}</b> → émolument <b>${eur2(r.remise.netInter)}</b> HT<br>
+          <span>au lieu de ${eur2(r.remise.emolHT)} HT sans remise.</span></div>
+          ${r.remise.note?`<div class="remise-note">${r.remise.note}</div>`:''}
+        </div>`;
+      if(erw) erw.style.display='';
+      if(er && active.state.emolRetenu==null) er.value=(r.emolFull||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    } else {
+      rz.innerHTML='';
+      if(erw) erw.style.display='none';
+    }
+  }
+}
+
+/* ====================  EXPORT PDF (html2pdf via CDN)  ==================== */
+function ensureHtml2pdf(){
+  return new Promise((res,rej)=>{
+    if(window.html2pdf) return res();
+    const sc=document.createElement('script');
+    sc.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    sc.onload=()=>res(); sc.onerror=()=>rej();
+    document.head.appendChild(sc);
+  });
+}
+function buildEstimateHTML(calc, baseLabel){
+  const r=calc.compute();
+  if(!r||!r.base) return null;
+  const tot=provision(r.total), arrondi=r.total>=500, pct=r.base?(tot/r.base*100):0;
+  const today=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  const rows=r.lines.map(l=>{
+    if(l.group){
+      return `<tr><td style="padding:9px 0 4px;border-top:1px solid #E7E5E4;font-weight:700;color:#0F2238">${l.k}${l.note?`<div style="font-weight:400;font-size:11px;color:#78716C">${l.note}</div>`:''}</td><td style="padding:9px 0 4px;border-top:1px solid #E7E5E4;text-align:right;font-weight:700;color:#0F2238;white-space:nowrap">${l.v}</td></tr>`;
+    }
+    return `<tr><td style="padding:2px 0 2px 18px;font-size:12.5px;color:#57534E">${l.k}${l.note?`<span style="color:#A8A29E"> · ${l.note}</span>`:''}</td><td style="padding:2px 0;text-align:right;font-size:12.5px;white-space:nowrap;color:${l.discount?'#0E7490':'#57534E'}">${l.v}</td></tr>`;
+  }).join('');
+  return `
+  <div style="font-family:'Segoe UI',Arial,sans-serif;color:#1C1917;width:680px">
+    <div style="background:#0F2238;color:#fff;padding:22px 28px;border-bottom:3px solid #C99A2E">
+      <div style="font-size:20px;font-weight:700;letter-spacing:.5px">FIDAL <span style="color:#C99A2E">/</span> NOTAIRES</div>
+      <div style="font-size:12px;color:#9DB4C0;margin-top:2px">COUNTDOWN — estimation de frais d'acte</div>
+    </div>
+    <div style="padding:24px 28px">
+      <h1 style="font-size:18px;color:#0F2238;margin:0 0 2px">${calc.label}</h1>
+      <div style="font-size:12px;color:#78716C;margin-bottom:16px">${today} · ${baseLabel} : ${eur(r.base)}</div>
+      <table style="width:100%;border-collapse:collapse">${rows}</table>
+      <div style="margin-top:18px;background:#33838B12;border:1px solid #33838B40;border-radius:8px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;color:#0F2238;font-weight:600">Total estimé${arrondi?' (arrondi à la centaine sup.)':''}</span>
+        <span style="font-size:22px;color:#0F2238;font-weight:700">${eur(tot)}</span>
+      </div>
+      <div style="font-size:11px;color:#78716C;text-align:right;margin-top:4px">soit ${pctf(pct)} de la valeur</div>
+      <p style="font-size:10.5px;color:#A8A29E;margin-top:22px;line-height:1.5;border-top:1px solid #E7E5E4;padding-top:12px">Estimation indicative établie sur les barèmes en vigueur — ne constitue ni un devis ni un engagement. Les débours sont des provisions. Document généré par COUNTDOWN (FIDAL Notaires).</p>
+    </div>
+  </div>`;
+}
+function exportEstimatePDF(calc, baseLabel, btn){
+  const html=buildEstimateHTML(calc, baseLabel);
+  if(!html) return;
+  const old=btn?btn.textContent:'';
+  if(btn){ btn.textContent='PDF…'; btn.disabled=true; }
+  const restore=(txt)=>{ if(btn){ btn.textContent=txt||old||'Exporter PDF'; btn.disabled=false; } };
+  ensureHtml2pdf().then(()=>{
+    const el=document.createElement('div');
+    el.style.cssText='position:fixed;left:-10000px;top:0;background:#fff';
+    el.innerHTML=html; document.body.appendChild(el);
+    const name=`COUNTDOWN_${calc.label.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w]+/g,'_')}_${new Date().toISOString().slice(0,10)}.pdf`;
+    window.html2pdf().set({margin:[0,0,0,0],filename:name,image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}})
+      .from(el.firstElementChild).save()
+      .then(()=>{ document.body.removeChild(el); restore('Exporté ✓'); setTimeout(()=>restore(),1400); })
+      .catch(()=>{ if(el.parentNode) document.body.removeChild(el); restore(); });
+  }).catch(()=>{ restore('Hors-ligne'); setTimeout(()=>restore(),1800); });
+}
+
+function emailEstimatePDF(calc, baseLabel, btn){
+  const html=buildEstimateHTML(calc, baseLabel);
+  if(!html) return;
+  const old=btn?btn.textContent:'';
+  if(btn){ btn.textContent='PDF…'; btn.disabled=true; }
+  const restore=(txt)=>{ if(btn){ btn.textContent=txt||old||'Envoyer par mail'; btn.disabled=false; } };
+  const subject=`FIDAL Notaires — ${calc.label} (estimation)`;
+  const body=`Bonjour,\n\nVeuillez trouver l'estimation « ${calc.label} » générée avec COUNTDOWN.\n\nBien cordialement,`;
+  ensureHtml2pdf().then(()=>{
+    const el=document.createElement('div');
+    el.style.cssText='position:fixed;left:-10000px;top:0;background:#fff';
+    el.innerHTML=html; document.body.appendChild(el);
+    const name=`COUNTDOWN_${calc.label.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w]+/g,'_')}_${new Date().toISOString().slice(0,10)}.pdf`;
+    window.html2pdf().set({margin:[0,0,0,0],image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}})
+      .from(el.firstElementChild).outputPdf('blob')
+      .then(async (blob)=>{
+        if(el.parentNode) document.body.removeChild(el);
+        const file=new File([blob], name, {type:'application/pdf'});
+        if(navigator.canShare && navigator.canShare({files:[file]})){
+          try{ await navigator.share({files:[file], title:subject, text:body}); restore('Envoyé ✓'); }
+          catch(e){ restore(); }
+          setTimeout(()=>restore(),1400);
+        } else {
+          const url=URL.createObjectURL(blob);
+          const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(()=>URL.revokeObjectURL(url),5000);
+          window.location.href=`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body+'\n\n(Le PDF a été téléchargé : il reste à le joindre au message.)')}`;
+          restore('PDF téléchargé'); setTimeout(()=>restore(),2200);
+        }
+      })
+      .catch(()=>{ if(el.parentNode) document.body.removeChild(el); restore(); });
+  }).catch(()=>{ restore('Hors-ligne'); setTimeout(()=>restore(),1800); });
 }
 
 function show(){
@@ -638,6 +1326,8 @@ function show(){
   else if(view==='calculator'){
     app.innerHTML=active.render();
     if(active.id==='immo'){ wireImmo(); renderResults(); }
+    else if(active.id==='donation'){ wireDonation(); renderResults(); }
+    else if(active.id==='dutreil'){ wireDutreil(); renderResults(); }
   }
   const foot=document.getElementById('foot');
   if(foot) foot.style.display = (view==='calculator' && active && active.id==='immo') ? '' : 'none';
@@ -693,6 +1383,11 @@ function wireImmo(){
   bindNum($('mobilier'),'mobilier');
 
   $('type').onchange=()=>{ s.type=$('type').value; syncUI(); renderResults(); };
+  document.querySelectorAll('#usage button').forEach(b=>b.onclick=()=>{
+    s.usage=b.dataset.v;
+    document.querySelectorAll('#usage button').forEach(x=>x.classList.toggle('on',x===b));
+    renderResults();
+  });
 
   document.querySelectorAll('#primo button').forEach(b=>b.onclick=()=>{
     s.primo = b.dataset.v==='oui';
@@ -714,26 +1409,182 @@ function wireImmo(){
   bindNum($('pretAutres'),'pretAutres');
   bindNum($('pretAides'),'pretAides');
 
-  const rem=$('remise');
-  rem.oninput=()=>{ s.remise=Math.max(0,Math.min(20,parseNum(rem.value))); renderResults(); };
+  const er=$('emolRetenu');
+  if(er) er.oninput=()=>{ const v=er.value.trim(); s.emolRetenu = v===''?null:parseNum(v); renderResults(); };
   bindNum($('debours'),'debours');
   bindNum($('deboursGar'),'deboursGar');
 
   syncUI();
 
   $('reset').onclick=()=>{
-    moduleImmo.state={prix:250000,mobilier:0,type:'bati',primo:false,dept:'75',dmto:0.0632,override:false,financement:'sans',pretAutres:0,pretAides:0,remise:0,debours:1100,deboursGar:300}; mount();
+    moduleImmo.state={prix:250000,mobilier:0,type:'bati',primo:false,dept:'75',dmto:0.0632,override:false,financement:'sans',pretAutres:0,pretAides:0,usage:'resid',emolRetenu:null,debours:1100,deboursGar:300}; mount();
   };
   $('copy').onclick=()=>{
     const r=moduleImmo.compute();
     const txt=`FIDAL Notaires — COUNTDOWN — Frais d'acquisition (estimation)\nPrix: ${eur(r.base)}\n`+
       r.lines.map(l=>`${l.sub?'  ':''}${l.k.replace(/\s+/g,' ')}: ${l.v}`).join('\n')+
-      `\nTOTAL: ${eur(r.total)} (${pctf(r.total/r.base*100)})`;
+      `\nTOTAL: ${eur(provision(r.total))} (${pctf(provision(r.total)/r.base*100)})`;
     navigator.clipboard?.writeText(txt);
     const btn=$('copy'); btn.textContent='Copié ✓'; setTimeout(()=>btn.textContent='Copier le détail',1400);
   };
+  $('pdf').onclick=()=>exportEstimatePDF(moduleImmo,'Prix',$('pdf'));
+  $('pdfmail').onclick=()=>emailEstimatePDF(moduleImmo,'Prix',$('pdfmail'));
 
   setupVoice();
+}
+
+/* ---- Câblage des champs du module donation ---- */
+function wireDonation(){
+  const s=moduleDonation.state;
+  const $=id=>document.getElementById(id);
+
+  const bindNum=(el,key)=>{ if(!el) return; el.oninput=()=>{ s[key]=parseNum(el.value); renderResults(); }; el.onblur=()=>{ el.value=(s[key]||0).toLocaleString('fr-FR'); }; };
+  bindNum($('d_valImmeuble'),'valImmeuble');
+  bindNum($('d_valSociete'),'valSociete');
+  bindNum($('d_valLiquidites'),'valLiquidites');
+
+  // Donations antérieures (15 ans) — matrice donateur × donataire
+  if(!s.donAnt) s.donAnt=[[],[]];
+  function updateAnt(){
+    const nd=Math.max(1,s.donataires||1);
+    const two=(s.donateurs||1)===2;
+    for(let j=0;j<10;j++){
+      const row=$('d_antRow'+j); if(row) row.style.display=j<nd?'flex':'none';
+      const colB=$('d_antColB'+j); if(colB) colB.style.display=two?'block':'none';
+      const labA=$('d_antLabA'+j); if(labA) labA.style.display=two?'block':'none';
+    }
+  }
+  for(let i=0;i<2;i++){ for(let j=0;j<10;j++){ (function(i,j){
+    const el=$('d_ant_'+i+'_'+j); if(!el) return;
+    el.oninput=()=>{ if(!s.donAnt[i]) s.donAnt[i]=[]; s.donAnt[i][j]=parseNum(el.value); renderResults(); };
+    el.onblur=()=>{ el.value=((s.donAnt[i]&&s.donAnt[i][j])||0).toLocaleString('fr-FR'); };
+  })(i,j); } }
+
+  $('d_lien').onchange=()=>{ s.lien=$('d_lien').value; renderResults(); };
+
+  function updatePart(){
+    const two=(s.donateurs||1)===2;
+    const pw=$('d_partWrap'); if(pw) pw.style.display=two?'block':'none';
+    const a2=$('d_age2Wrap'); if(a2) a2.style.display=two?'block':'none';
+    const lab=$('d_ageLab'); if(lab) lab.textContent=two?'1er donateur':'donateur réservataire';
+    const ph=$('d_partHint'); if(ph) ph.textContent=two?`Donateur 1 : ${s.partD1||50} % · Donateur 2 : ${100-(s.partD1||50)} %`:'';
+  }
+  document.querySelectorAll('#d_donateurs button').forEach(b=>b.onclick=()=>{
+    s.donateurs=parseInt(b.dataset.v);
+    document.querySelectorAll('#d_donateurs button').forEach(x=>x.classList.toggle('on',x===b));
+    updatePart(); updateAnt(); renderResults();
+  });
+  $('d_donataires').onchange=()=>{ s.donataires=parseInt($('d_donataires').value); updateAnt(); renderResults(); };
+  const part=$('d_partD1');
+  part.oninput=()=>{ s.partD1=Math.max(0,Math.min(100,Math.round(parseNum(part.value)))); updatePart(); renderResults(); };
+
+  document.querySelectorAll('#d_immeuble button').forEach(b=>b.onclick=()=>{
+    s.immeuble=b.dataset.v==='oui';
+    document.querySelectorAll('#d_immeuble button').forEach(x=>x.classList.toggle('on',x===b));
+    $('d_immWrap').style.display=s.immeuble?'block':'none';
+    const uw=$('d_usageWrap'); if(uw) uw.style.display=s.immeuble?'block':'none';
+    renderResults();
+  });
+  document.querySelectorAll('#d_usage button').forEach(b=>b.onclick=()=>{
+    s.usage=b.dataset.v;
+    document.querySelectorAll('#d_usage button').forEach(x=>x.classList.toggle('on',x===b));
+    renderResults();
+  });
+  document.querySelectorAll('#d_societe button').forEach(b=>b.onclick=()=>{
+    s.societe=b.dataset.v==='oui';
+    document.querySelectorAll('#d_societe button').forEach(x=>x.classList.toggle('on',x===b));
+    $('d_socWrap').style.display=s.societe?'block':'none';
+    const dh=$('d_dutreilHint'); if(dh) dh.style.display=s.societe?'block':'none';
+    renderResults();
+  });
+  document.querySelectorAll('#d_liquidites button').forEach(b=>b.onclick=()=>{
+    s.liquidites=b.dataset.v==='oui';
+    document.querySelectorAll('#d_liquidites button').forEach(x=>x.classList.toggle('on',x===b));
+    $('d_liqWrap').style.display=s.liquidites?'block':'none';
+    s.donFamilial = s.liquidites;                 // 790 G : don familial de sommes d'argent
+    const c=$('d_790'); if(c) c.checked = s.donFamilial;
+    renderResults();
+  });
+
+  function updateAge(){
+    if(!s.demembre) return;
+    const h=$('d_ageHint'); if(h){ h.textContent=`Nue-propriété taxée à ${Math.round(fractionNP(s.ageUsuf||0)*100)} % (art. 669 CGI).`; }
+    const h2=$('d_age2Hint'); if(h2){ h2.textContent=`Nue-propriété taxée à ${Math.round(fractionNP(s.ageUsuf2||0)*100)} %.`; }
+  }
+  document.querySelectorAll('#d_dem button').forEach(b=>b.onclick=()=>{
+    s.demembre=b.dataset.v==='np';
+    document.querySelectorAll('#d_dem button').forEach(x=>x.classList.toggle('on',x===b));
+    $('d_ageWrap').style.display=s.demembre?'block':'none';
+    updateAge(); renderResults();
+  });
+  const age=$('d_age');
+  age.oninput=()=>{ s.ageUsuf=Math.max(0,Math.min(120,parseNum(age.value))); updateAge(); renderResults(); };
+  const age2=$('d_age2');
+  age2.oninput=()=>{ s.ageUsuf2=Math.max(0,Math.min(120,parseNum(age2.value))); updateAge(); renderResults(); };
+
+  $('d_handicap').onchange=()=>{ s.handicap=$('d_handicap').checked; renderResults(); };
+  $('d_790').onchange=()=>{ s.donFamilial=$('d_790').checked; renderResults(); };
+
+  const der=$('emolRetenu');
+  if(der) der.oninput=()=>{ const v=der.value.trim(); s.emolRetenu = v===''?null:parseNum(v); renderResults(); };
+
+  updateAge(); updatePart(); updateAnt();
+
+  $('dreset').onclick=()=>{
+    moduleDonation.state={lien:'enfant',donateurs:1,donataires:1,partD1:50,ageUsuf2:71,immeuble:true,valImmeuble:300000,usage:'resid',societe:false,valSociete:0,liquidites:false,valLiquidites:0,demembre:false,ageUsuf:71,handicap:false,donFamilial:false,debours:400,emolRetenu:null,donAnt:[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}; mount();
+  };
+  $('dcopy').onclick=()=>{
+    const r=moduleDonation.compute();
+    const txt=`FIDAL Notaires — COUNTDOWN — Frais de donation (estimation)\nValeur transmise : ${eur(r.base)}\n`+
+      r.lines.map(l=>`${l.sub?'  ':''}${l.k.replace(/\s+/g,' ')}: ${l.v}`).join('\n')+
+      `\nTOTAL: ${eur(provision(r.total))}`;
+    navigator.clipboard?.writeText(txt);
+    const btn=$('dcopy'); btn.textContent='Copié ✓'; setTimeout(()=>btn.textContent='Copier le détail',1400);
+  };
+  $('dpdf').onclick=()=>exportEstimatePDF(moduleDonation,'Valeur transmise',$('dpdf'));
+  $('dpdfmail').onclick=()=>emailEstimatePDF(moduleDonation,'Valeur transmise',$('dpdfmail'));
+}
+
+/* ---- Câblage du simulateur Donation avec Dutreil ---- */
+function wireDutreil(){
+  const s=moduleDutreil.state;
+  const $=id=>document.getElementById(id);
+  const bindNum=(el,key)=>{ if(!el) return; el.oninput=()=>{ s[key]=parseNum(el.value); renderResults(); }; el.onblur=()=>{ el.value=(s[key]||0).toLocaleString('fr-FR'); }; };
+  bindNum($('du_valeur'),'valeur');
+  const der=$('emolRetenu');
+  if(der) der.oninput=()=>{ const v=der.value.trim(); s.emolRetenu = v===''?null:parseNum(v); renderResults(); };
+  $('du_lien').onchange=()=>{ s.lien=$('du_lien').value; renderResults(); };
+  $('du_donataires').onchange=()=>{ s.donataires=parseInt($('du_donataires').value); renderResults(); };
+
+  function updateAge(){ const h=$('du_ageHint'); if(h&&s.demembre){ h.textContent=`Nue-propriété taxée à ${Math.round(fractionNP(s.ageUsuf||0)*100)} % (art. 669 CGI).`; } }
+  document.querySelectorAll('#du_dem button').forEach(b=>b.onclick=()=>{
+    s.demembre=b.dataset.v==='np';
+    document.querySelectorAll('#du_dem button').forEach(x=>x.classList.toggle('on',x===b));
+    $('du_ageWrap').style.display=s.demembre?'block':'none';
+    updateAge(); renderResults();
+  });
+  const age=$('du_age');
+  age.oninput=()=>{ s.ageUsuf=Math.max(0,Math.min(120,parseNum(age.value))); updateAge(); renderResults(); };
+
+  document.querySelectorAll('#du_moins70 button').forEach(b=>b.onclick=()=>{
+    s.moins70=b.dataset.v==='oui';
+    document.querySelectorAll('#du_moins70 button').forEach(x=>x.classList.toggle('on',x===b));
+    renderResults();
+  });
+
+  updateAge();
+
+  $('dureset').onclick=()=>{ moduleDutreil.state={valeur:1000000,lien:'enfant',donataires:1,demembre:false,ageUsuf:71,moins70:true,debours:400,emolRetenu:null}; mount(); };
+  $('ducopy').onclick=()=>{
+    const r=moduleDutreil.compute();
+    const txt=`FIDAL Notaires — COUNTDOWN — Donation avec Dutreil (estimation)\nValeur des titres : ${eur(r.base)}\n`+
+      r.lines.map(l=>`${l.sub?'  ':''}${l.k.replace(/\s+/g,' ')}: ${l.v}`).join('\n')+
+      `\nTOTAL: ${eur(provision(r.total))}`;
+    navigator.clipboard?.writeText(txt);
+    const btn=$('ducopy'); btn.textContent='Copié ✓'; setTimeout(()=>btn.textContent='Copier le détail',1400);
+  };
+  $('dupdf').onclick=()=>exportEstimatePDF(moduleDutreil,'Valeur des titres',$('dupdf'));
+  $('dupdfmail').onclick=()=>emailEstimatePDF(moduleDutreil,'Valeur des titres',$('dupdfmail'));
 }
 
 /* ====================  DICTÉE VOCALE  ==================== */
