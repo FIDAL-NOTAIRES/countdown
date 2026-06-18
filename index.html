@@ -278,9 +278,11 @@ function emolumentsHT(prix){
   return e;
 }
 
-/* ---- Barème émoluments de sûreté (hypothèque / ex-PPD), HT, sur le capital garanti ---- */
+/* ---- Barème émolument de sûreté / acte principal de prêt (A444-143, n°137 ; = barème de vente ÷ 3),
+       HT, sur le capital garanti. Sert à l'affectation hypothécaire (A444-136), au cautionnement
+       (A444-127) et à l'hypothèque légale spéciale. Vérifié Légifrance, en vigueur depuis 2020. ---- */
 function emolGarantieHT(cap){
-  const tr=[[6500,.01333],[17000,.0055],[30000,.00366],[Infinity,.00275]];
+  const tr=[[6500,.0129],[17000,.00532],[60000,.00355],[Infinity,.00266]];
   let prev=0,e=0;
   for(const [up,rate] of tr){ if(cap>prev){ e+=(Math.min(cap,up)-prev)*rate; prev=up; } else break; }
   return e;
@@ -300,7 +302,7 @@ function dmtoForDept(code){
 const moduleImmo = {
   id:'immo', label:"Frais d'acquisition", desc:"Bâti, VEFA, neuf, terrain ; primo‑accédant, mobilier, garantie de prêt.",
   state:{ prix:250000, mobilier:0, type:'bati', primo:false, dept:'75', dmto:0.0632, override:false,
-          financement:'sans', pretAutres:0, pretAides:0,
+          financement:'sans', pretAutres:0, pretAides:0, accessoires:20,
           usage:'resid', emolRetenu:null, debours:1100, deboursGar:300 },
 
   render(){
@@ -393,6 +395,11 @@ const moduleImmo = {
             <span class="lab">Prêts PEL/CEL & aidés <span>FGAS, PAS, PTZ…</span></span>
             <input type="text" inputmode="numeric" id="pretAides" value="${s.pretAides.toLocaleString('fr-FR')}">
             <span class="microhint">Exonérés de taxe de publicité foncière.</span>
+          </label>
+          <label class="f">
+            <span class="lab" style="justify-content:flex-start;gap:7px">Accessoires <span style="color:var(--faint);font-weight:400">majoration de l'assiette TPF/CSI</span></span>
+            <input type="text" inputmode="numeric" id="accessoires" value="${s.accessoires||0}">
+            <span class="microhint">Usage : +20 % (intérêts et frais). Assiette = capital × (1 + ce taux).</span>
           </label>
         </div>
 
@@ -488,17 +495,18 @@ const moduleImmo = {
     if(s.financement==='avec_garantie'){
       const cap=(s.pretAutres||0)+(s.pretAides||0);
       if(cap>0){
-        const hypConv = isNeuf;     // VEFA/neuf → hypothèque conventionnelle ; existant → ex‑PPD
-        const garType = hypConv ? 'Hypothèque conventionnelle' : 'Hypothèque légale spéciale (ex‑PPD)';
+        const hypConv = isNeuf;     // VEFA/neuf → hypothèque conventionnelle ; existant → hypothèque légale spéciale
+        const garType = hypConv ? 'Hypothèque conventionnelle' : 'Hypothèque légale spéciale du prêteur de deniers';
         const emGarTTC = emolGarantieHT(cap)*1.20;
-        const tpf = hypConv ? (s.pretAutres||0)*0.0071498 : 0;   // PPD et prêts aidés exonérés
-        const csiGar = Math.max(cap*0.0005,8);
+        const acc = 1 + Math.max(0,(s.accessoires||0))/100;
+        const tpf = hypConv ? (s.pretAutres||0)*acc*0.0071498 : 0;   // hypothèque légale spéciale et prêts aidés exonérés
+        const csiGar = Math.max(cap*acc*0.0005,8);
         const debGar = s.deboursGar||0;
         garTotal = emGarTTC + tpf + csiGar + debGar;
         lines.push({group:true,k:'Garantie de prêt',note:garType,v:eur(garTotal)});
         lines.push({sub:true,k:'Émoluments de sûreté TTC',note:'barème + TVA 20 %',v:eur2(emGarTTC)});
-        lines.push({sub:true,k:'Taxe de publicité foncière',note: hypConv?'0,715 % (prêts hors aidés)':'exonérée (ex‑PPD)',v:eur2(tpf)});
-        lines.push({sub:true,k:'CSI sur garantie',note:'0,05 %',v:eur2(csiGar)});
+        lines.push({sub:true,k:'Taxe de publicité foncière',note: hypConv?'0,715 % (prêts hors aidés × accessoires)':'exonérée (hypothèque légale spéciale)',v:eur2(tpf)});
+        lines.push({sub:true,k:'CSI sur garantie',note:'0,05 % du capital × accessoires',v:eur2(csiGar)});
         lines.push({sub:true,k:'Débours garantie',note:'provision',v:eur2(debGar)});
       }
     }
@@ -1123,6 +1131,480 @@ const moduleApostille = {
   compute(){ return null; }
 };
 
+/* ====================  MODULE : CHANGEMENT DE RÉGIME MATRIMONIAL  ====================
+   Sources vérifiées (juin 2026) :
+   - Émolument de l'acte (n°41 tableau 5, art. A444-82 C. com., arrêté 28 févr. 2020) :
+     forfait 188,68 € HT si ni apport/dot ou valeur déclarée ≤ 30 800 € ; sinon proportionnel.
+   - Émolument de liquidation (n°42 tableau 5) ; émolument de partage (art. A444-121,
+     même grille que l'émolument de donation post-2020 ; reprises en nature 0,484 %).
+   - Enregistrement : droit fixe 125 € (art. 680 CGI) depuis le 01/01/2020 — l'art. 1133 bis,
+     qui exonérait les passages en communauté, a été abrogé par la LF 2019.
+   - Apport d'immeuble propre à la communauté : TPF 0,71498 % + CSI 0,10 % sur la SEULE
+     quote-part transmise à l'autre époux (50 % pour un bien propre passant en communauté).
+   - Vers séparation : droit de partage 2,5 % (taux plein, art. 746 CGI — le 1,10 % est
+     réservé aux divorces/PACS, pas au changement de régime).
+   - Homologation : rare depuis 2019 (opposition d'un enfant majeur, d'un créancier, ou
+     enfant mineur avec saisine du juge) → honoraires d'avocat libres.
+   ==================================================================================== */
+const EMOL_CHGT_41 =[[6500,.01315],[17000,.00542],[60000,.00362],[Infinity,.00271]]; // acte n°41 (> 30 800 €)
+const EMOL_LIQ_42  =[[6500,.02515],[17000,.01038],[60000,.00692],[Infinity,.00519]]; // projet de liquidation n°42
+const EMOL_PARTAGE =[[6500,.04837],[17000,.01995],[60000,.01330],[Infinity,.00998]]; // partage A444-121 (grille donation post-2020)
+
+const moduleChangement = {
+  id:'changement', label:'Changement de régime matrimonial',
+  desc:"Émolument de l'acte, apport à la communauté, liquidation-partage, droit fixe et taxes.",
+  state:{ scenario:'simple', apportImmeuble:300000, quotePart:50, actifCommun:400000,
+          homologation:false, honorAvocat:0, debours:400 },
+
+  render(){
+    const s=this.state;
+    const on=v=>s.scenario===v?'on':'';
+    return `
+    <div class="grid">
+      <section class="card">
+        <h2>Paramètres du changement</h2>
+        <div class="hint">Scénario de l'opération, biens concernés et options.</div>
+
+        <label class="f">
+          <span class="lab">Type d'opération</span>
+          <div class="seg" id="c_scenario">
+            <button data-v="simple" class="${on('simple')}">Simple / aménagement</button>
+            <button data-v="apport" class="${on('apport')}">Apport à la communauté</button>
+            <button data-v="separation" class="${on('separation')}">Vers séparation</button>
+          </div>
+        </label>
+        <span class="microhint" id="c_scenHint"></span>
+
+        <div id="c_apportWrap" style="display:${s.scenario==='apport'?'block':'none'};border-top:1px solid var(--line);padding-top:16px;margin-top:12px">
+          <span class="sectitle">Apport d'immeuble propre à la communauté <span>valeur et quote-part transmise</span></span>
+          <label class="f">
+            <span class="lab">Valeur de l'immeuble apporté <span>pleine propriété</span></span>
+            <div class="priceField"><input type="text" inputmode="numeric" id="c_apport" value="${(s.apportImmeuble||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+          </label>
+          <label class="f">
+            <span class="lab" style="justify-content:flex-start;gap:7px">Quote-part transmise au conjoint <span style="color:var(--faint);font-weight:400">50 % pour un bien propre → communauté</span></span>
+            <div class="priceField"><input type="text" inputmode="numeric" id="c_qp" value="${s.quotePart||50}"><span class="euro" style="font-size:18px">%</span></div>
+            <span class="microhint" id="c_qpHint"></span>
+          </label>
+        </div>
+
+        <div id="c_sepWrap" style="display:${s.scenario==='separation'?'block':'none'};border-top:1px solid var(--line);padding-top:16px;margin-top:12px">
+          <span class="sectitle">Liquidation-partage de la communauté <span>actif net à partager</span></span>
+          <label class="f">
+            <span class="lab">Actif net de communauté <span>assiette liquidation + partage</span></span>
+            <div class="priceField"><input type="text" inputmode="numeric" id="c_actif" value="${(s.actifCommun||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+          </label>
+          <span class="microhint">Émolument de liquidation (n°42) + émolument de partage (A444-121) + droit de partage 2,5 % (art. 746 CGI).</span>
+        </div>
+
+        <details class="adv">
+          <summary>Options avancées</summary>
+          <div style="display:flex;flex-direction:column;gap:13px;margin-top:14px">
+            <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-soft);cursor:pointer">
+              <input type="checkbox" id="c_homolog" ${s.homologation?'checked':''}>
+              <span>Homologation judiciaire <span style="color:var(--faint)">· opposition ou enfant mineur</span></span>
+            </label>
+            <label class="f" id="c_avocatWrap" style="display:${s.homologation?'block':'none'}">
+              <span class="lab">Honoraires d'avocat <span>honoraires libres</span></span>
+              <div class="priceField"><input type="text" inputmode="numeric" id="c_avocat" value="${(s.honorAvocat||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+            </label>
+            <label class="f">
+              <span class="lab">Débours & formalités <span>publication JAL, mentions, état civil</span></span>
+              <div class="priceField"><input type="text" inputmode="numeric" id="c_debours" value="${(s.debours||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+            </label>
+          </div>
+          <span class="microhint">Homologation rare depuis la loi du 23 mars 2019 : requise seulement en cas d'opposition (enfant majeur, créancier) ou si le notaire saisit le juge en présence d'enfant mineur.</span>
+        </details>
+      </section>
+
+      <section class="card" id="resultCard">
+        <h2>Coût du changement estimé</h2>
+        <div class="hint">Émoluments + droits + taxes + formalités. Délai de 2 ans depuis le mariage ou le dernier changement.</div>
+        <div id="results"></div>
+        <div class="actions">
+          <button class="btn" id="ccopy">Copier le détail</button>
+          <button class="btn ghost" id="cpdf">Exporter PDF</button>
+          <button class="btn ghost" id="cpdfmail">Envoyer par mail</button>
+          <button class="btn ghost" id="creset">Réinitialiser</button>
+        </div>
+      </section>
+    </div>`;
+  },
+
+  compute(){
+    const s=this.state;
+    const lines=[];
+    const sc=s.scenario;
+    const apport = (sc==='apport') ? (s.apportImmeuble||0) : 0;
+    const qp = Math.min(100,Math.max(0,s.quotePart||0))/100;
+    const actif = (sc==='separation') ? (s.actifCommun||0) : 0;
+
+    // 1. Émolument de l'acte de changement (n°41, A444-82)
+    const hasApport = sc==='apport' && apport>0;
+    const valDecl = hasApport ? apport : 0;
+    let emActeHT, emActeNote;
+    if(hasApport && valDecl>30800){
+      emActeHT  = emolDonationHT(valDecl, EMOL_CHGT_41);
+      emActeNote= 'proportionnel sur la valeur déclarée (A444-82, 2°)';
+    } else {
+      emActeHT  = 188.68;
+      emActeNote= 'forfait 188,68 € HT (A444-82, 1°)';
+    }
+
+    // 2. Liquidation + partage (scénario séparation)
+    let emLiqHT=0, emPartHT=0;
+    if(sc==='separation' && actif>0){
+      emLiqHT  = emolDonationHT(actif, EMOL_LIQ_42);
+      emPartHT = emolDonationHT(actif, EMOL_PARTAGE);
+    }
+
+    const emHT  = emActeHT + emLiqHT + emPartHT;
+    const tva   = emHT*0.20;
+    const emTTC = emHT+tva;
+    lines.push({group:true,k:'Émoluments du notaire',v:eur(emTTC)});
+    lines.push({sub:true,k:'Émolument de l\'acte de changement',note:emActeNote,v:eur2(emActeHT)});
+    if(emLiqHT>0)  lines.push({sub:true,k:'Émolument de liquidation',note:'projet de liquidation (n°42 tableau 5)',v:eur2(emLiqHT)});
+    if(emPartHT>0) lines.push({sub:true,k:'Émolument de partage',note:'A444-121 — s\'impute sur la liquidation si juge désigné (255-10° C. civ.)',v:eur2(emPartHT)});
+    lines.push({sub:true,k:'TVA 20 %',v:eur2(tva)});
+
+    // 3. Droits & taxes
+    let enr=0, tpf=0, csi=0, partageTax=0;
+    if(sc==='separation' && actif>0){
+      partageTax = actif*0.025;
+      lines.push({group:true,k:'Droit de partage',note:'sur l\'actif net partagé',v:eur(partageTax)});
+      lines.push({sub:true,k:'Droit de partage 2,5 %',note:'taux plein, art. 746 CGI (le 1,10 % ne vise que divorce/PACS)',v:eur2(partageTax)});
+    } else {
+      enr = 125;
+      lines.push({group:true,k:'Droit d\'enregistrement',v:eur(enr)});
+      lines.push({sub:true,k:'Droit fixe',note:'art. 680 CGI — 125 € depuis 2020 (art. 1133 bis abrogé)',v:eur2(enr)});
+    }
+
+    // Apport d'immeuble propre à la communauté → TPF + CSI sur la quote-part transmise
+    if(sc==='apport' && apport>0){
+      const baseTransf = apport*qp;
+      tpf = baseTransf*0.0071498;
+      csi = Math.max(baseTransf*0.0010,15);
+      lines.push({group:true,k:'Taxes sur l\'apport immobilier',note:`quote-part transmise : ${eur2(baseTransf)}`,v:eur(tpf+csi)});
+      lines.push({sub:true,k:'Taxe de publicité foncière',note:'0,71498 % de la quote-part transmise',v:eur2(tpf)});
+      lines.push({sub:true,k:'Contribution de sécurité immobilière',note:'0,10 %, min 15 €',v:eur2(csi)});
+    }
+
+    // 4. Homologation (optionnelle)
+    let avocat=0;
+    if(s.homologation){
+      avocat = s.honorAvocat||0;
+      lines.push({group:true,k:'Homologation judiciaire',v:eur(avocat)});
+      lines.push({sub:true,k:'Honoraires d\'avocat',note:'honoraires libres — à renseigner',v:eur2(avocat)});
+    }
+
+    // 5. Formalités & débours
+    const emForm=300, emFormTVA=emForm*0.20;
+    const deb = s.debours||0;
+    lines.push({group:true,k:'Formalités & débours',v:eur(emForm+emFormTVA+deb)});
+    lines.push({sub:true,k:'Émoluments de formalités HT',note:'forfait — publication JAL, mentions, état civil',v:eur2(emForm)});
+    lines.push({sub:true,k:'TVA 20 %',v:eur2(emFormTVA)});
+    if(deb>0) lines.push({sub:true,k:'Débours / provision',v:eur2(deb)});
+
+    const total = emTTC + enr + tpf + csi + partageTax + avocat + emForm + emFormTVA + deb;
+    return {lines,total,base:total,noPct:true};
+  }
+};
+
+/* ====================  MODULE : FRAIS DE PRÊT HYPOTHÉCAIRE  ====================
+   Coût de la garantie notariée d'un prêt immobilier (mise en place).
+   Sources vérifiées (juin 2026) :
+   - Émolument de sûreté : barème emolGarantieHT (déjà en production, module immobilier).
+   - TPF 0,71498 % sur les sommes garanties — hypothèque conventionnelle uniquement ;
+     exonérée pour l'hypothèque légale spéciale du prêteur de deniers et les prêts aidés
+     (PTZ, PAS, PC, PEL).
+   - CSI 0,05 % sur les sommes garanties, minimum 8 € (CGI art. 881 ; C. com.).
+   - Assiette TPF/CSI : capital majoré des accessoires (usage : +20 %).
+   Mainlevée future : voir le module dédié « Mainlevée d'hypothèque ».
+   ============================================================================== */
+/* ---- Types de sûretés pour le module Frais de prêt ---- */
+const GTYPES = {
+  hls:        { lib:'Hypothèque légale spéciale du prêteur de deniers', tax:'realNoTPF', aides:false, cap:true  },
+  hc:         { lib:'Hypothèque conventionnelle',                       tax:'realTPF',   aides:true,  cap:false },
+  gageImmo:   { lib:'Gage immobilier (antichrèse)',                     tax:'realTPF',   aides:false, cap:false },
+  caut:       { lib:'Cautionnement',                                    tax:'perso',     aides:false, cap:false },
+  nantParts:  { lib:'Nantissement de parts sociales',                   tax:'perso',     aides:false, cap:false },
+  nantFC:     { lib:'Nantissement de fonds de commerce',                tax:'perso',     aides:false, cap:false },
+  nantTitres: { lib:'Nantissement de compte-titres',                    tax:'perso',     aides:false, cap:false }
+};
+
+const moduleP = {
+  id:'pret', label:'Frais de prêt hypothécaire',
+  desc:"Liste des sûretés : émolument unique sur la somme garantie, TPF/CSI par inscription.",
+  state:{ prixVente:250000, emolCfg:'autonome',
+          garanties:[{type:'hls', montant:200000, aides:0}],
+          accessoires:20, emolForm:120, debours:180 },
+
+  render(){
+    const s=this.state;
+    const cfgOpt=(v,t)=>`<option value="${v}" ${s.emolCfg===v?'selected':''}>${t}</option>`;
+    const rows = s.garanties.map((g,i)=>{
+      const t=GTYPES[g.type]||GTYPES.hls;
+      const typeOpts = Object.keys(GTYPES).map(k=>`<option value="${k}" ${g.type===k?'selected':''}>${GTYPES[k].lib}</option>`).join('');
+      const aidesRow = t.aides ? `
+        <label class="f" style="margin:9px 0 0">
+          <span class="lab" style="justify-content:flex-start;gap:7px">Dont prêts aidés <span style="color:var(--faint);font-weight:400">PTZ, PAS, PC, PEL — exonérés de TPF</span></span>
+          <div class="priceField"><input type="text" inputmode="numeric" id="p_g${i}_aides" value="${(g.aides||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+        </label>` : '';
+      const taxHint = t.tax==='realTPF' ? 'TPF 0,71498 % (hors prêts aidés) + CSI 0,05 % sur l’inscription.'
+                    : t.tax==='realNoTPF' ? 'CSI 0,05 % sur l’inscription — exonérée de TPF.'
+                    : 'Sûreté personnelle/mobilière — ni TPF ni CSI.';
+      return `
+      <div style="border:1px solid var(--line);border-radius:12px;padding:13px;margin-top:11px">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">
+          <span style="width:22px;height:22px;border-radius:50%;background:#0F2238;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</span>
+          <select id="p_g${i}_type" style="flex:1">${typeOpts}</select>
+          <button class="btn ghost" id="p_g${i}_del" title="Retirer cette garantie" style="padding:6px 11px;flex-shrink:0">✕</button>
+        </div>
+        <label class="f" style="margin:0">
+          <span class="lab">Montant garanti ${t.cap?'<span>dans la limite du prix</span>':''}</span>
+          <div class="priceField"><input type="text" inputmode="numeric" id="p_g${i}_montant" value="${(g.montant||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+        </label>
+        ${aidesRow}
+        <span class="microhint" id="p_g${i}_hint">${taxHint}</span>
+      </div>`;
+    }).join('');
+
+    return `
+    <div class="grid">
+      <section class="card">
+        <h2>Garanties du prêt</h2>
+        <div class="hint">Ajoutez les sûretés les unes à la suite des autres. L’émolument est perçu une seule fois sur la somme garantie (A444-136, fasc. 3180 §7) ; TPF et CSI suivent chaque inscription.</div>
+
+        <label class="f">
+          <span class="lab">Rattachement de la sûreté <span>détermine l’émolument</span></span>
+          <select id="p_cfg">
+            ${cfgOpt('autonome','Acte de sûreté seul — sans acte de prêt notarié (intégral)')}
+            ${cfgOpt('debiteur','Sûreté du débiteur dans l’acte de prêt notarié (aucun émolument)')}
+            ${cfgOpt('separe','Sûreté par acte séparé (½)')}
+            ${cfgOpt('tiers','Sûreté d’un tiers dans l’acte de prêt notarié (¼)')}
+          </select>
+          <span class="microhint" id="p_cfgHint"></span>
+        </label>
+
+        <label class="f">
+          <span class="lab" style="justify-content:flex-start;gap:7px">Prix de vente à financer <span style="color:var(--faint);font-weight:400">plafond de l’hypothèque légale spéciale</span></span>
+          <div class="priceField"><input type="text" inputmode="numeric" id="p_prix" value="${(s.prixVente||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+        </label>
+
+        <div id="p_rows">${rows}</div>
+        <button class="btn ghost" id="p_gadd" style="margin-top:12px;width:100%">+ Ajouter une garantie</button>
+
+        <details class="adv" style="margin-top:16px">
+          <summary>Options avancées</summary>
+          <div style="display:flex;flex-direction:column;gap:13px;margin-top:14px">
+            <label class="f" style="margin:0">
+              <span class="lab" style="justify-content:flex-start;gap:7px">Accessoires <span style="color:var(--faint);font-weight:400">majoration assiette TPF/CSI</span></span>
+              <div class="priceField"><input type="text" inputmode="numeric" id="p_acc" value="${s.accessoires||0}"><span class="euro" style="font-size:18px">%</span></div>
+            </label>
+            <label class="f" style="margin:0">
+              <span class="lab">Émoluments de formalités HT <span>soumis TVA</span></span>
+              <div class="priceField"><input type="text" inputmode="numeric" id="p_emolForm" value="${(s.emolForm||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+            </label>
+            <label class="f" style="margin:0">
+              <span class="lab">Débours / provision <span>hors TVA</span></span>
+              <div class="priceField"><input type="text" inputmode="numeric" id="p_debours" value="${(s.debours||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+            </label>
+          </div>
+          <span class="microhint">Assiette TPF/CSI = montant garanti × (1 + accessoires). Émolument de sûreté calculé sur la somme garantie.</span>
+        </details>
+      </section>
+
+      <section class="card" id="resultCard">
+        <h2>Coût des garanties estimé</h2>
+        <div class="hint">Frais de mise en place. La mainlevée future fait l’objet d’un module dédié.</div>
+        <div id="results"></div>
+        <div class="actions">
+          <button class="btn" id="pcopy">Copier le détail</button>
+          <button class="btn ghost" id="ppdf">Exporter PDF</button>
+          <button class="btn ghost" id="pcompta">PDF compta</button>
+          <button class="btn ghost" id="ppdfmail">Envoyer par mail</button>
+          <button class="btn ghost" id="preset">Réinitialiser</button>
+        </div>
+      </section>
+    </div>`;
+  },
+
+  compute(){
+    const s=this.state;
+    const lines=[]; const items=[];
+    const acc = 1 + Math.max(0,(s.accessoires||0))/100;
+    const prix = s.prixVente||0;
+    let total=0;
+    const push=(lib,nat,ht,tva,ttc)=>items.push({lib,nat,ht:ht||0,tva:tva||0,ttc:(ttc!=null?ttc:((ht||0)+(tva||0)))});
+
+    const gars = (s.garanties||[]).filter(g=>(g.montant||0)>0);
+    const sommeGar = gars.reduce((a,g)=>a+(g.montant||0),0);
+    if(sommeGar<=0) return {lines:[],total:0,base:0,items:[]};
+
+    // 1) Émolument de sûreté — UNIQUE (A444-136 / fasc. 3180 §7)
+    const coefMap = {autonome:1, debiteur:0, separe:0.5, tiers:0.25};
+    const coef = coefMap[s.emolCfg] ?? 1;
+    const coefLbl = {autonome:'intégral (sans acte de prêt notarié)', debiteur:'aucun (disposition dépendante)', separe:'½ (acte séparé)', tiers:'¼ (tiers dans l’acte de prêt)'}[s.emolCfg] || '';
+    const emHT = emolGarantieHT(sommeGar)*coef, emTVA = emHT*0.20, emTTC = emHT+emTVA;
+    total += emTTC;
+    lines.push({group:true,k:'Émolument de sûreté (unique)',note:`somme garantie : ${eur2(sommeGar)} · ${coefLbl}`,v:eur(emTTC)});
+    if(s.emolCfg==='debiteur'){
+      lines.push({sub:true,k:'Émolument HT',note:'couvert par l’émolument de l’acte de prêt (à calculer séparément)',v:eur2(0)});
+    } else {
+      lines.push({sub:true,k:'Émolument HT',note:`A444-136 — ${coefLbl} · barème A444-143`,v:eur2(emHT)});
+      lines.push({sub:true,k:'TVA 20 %',v:eur2(emTVA)});
+    }
+    if(emHT>0) push('Émolument de sûreté (unique)','Émolument',emHT,emTVA,emTTC);
+
+    // 2) Taxes par sûreté (TPF / CSI suivent leurs propres règles, par inscription)
+    gars.forEach((g,idx)=>{
+      const t=GTYPES[g.type]||GTYPES.hls;
+      const m=g.montant||0;
+      const n=`${idx+1}. ${t.lib}`;
+      if(t.tax==='realTPF'){
+        const aides=Math.min(Math.max(0,g.aides||0),m);
+        const tpf=(m-aides)*acc*0.0071498;
+        const csi=Math.max(m*acc*0.0005,8);
+        total += tpf+csi;
+        lines.push({group:true,k:`${n} — taxes`,note:`montant garanti : ${eur2(m)}`,v:eur(tpf+csi)});
+        lines.push({sub:true,k:'Taxe de publicité foncière',note: aides>0?'0,71498 % — hors prêts aidés × accessoires':'0,71498 % × accessoires',v:eur2(tpf)});
+        lines.push({sub:true,k:'CSI inscription',note:'0,05 % × accessoires, min 8 €',v:eur2(csi)});
+        push(`Taxe de publicité foncière (${t.lib})`,'Taxe',tpf,0,tpf);
+        push(`CSI inscription (${t.lib})`,'Taxe',csi,0,csi);
+      } else if(t.tax==='realNoTPF'){
+        const csi=Math.max(m*acc*0.0005,8);
+        total += csi;
+        lines.push({group:true,k:`${n} — taxes`,note:`montant garanti : ${eur2(m)}`,v:eur(csi)});
+        lines.push({sub:true,k:'Taxe de publicité foncière',note:'exonérée',v:eur2(0)});
+        lines.push({sub:true,k:'CSI inscription',note:'0,05 % × accessoires, min 8 €',v:eur2(csi)});
+        if(prix>0 && m>prix){
+          lines.push({sub:true,k:'⚠ Dépassement du prix',note:`l’excédent de ${eur2(m-prix)} relève d’une hypothèque conventionnelle`,v:'—'});
+        }
+        push(`CSI inscription (${t.lib})`,'Taxe',csi,0,csi);
+      } else {
+        lines.push({group:true,k:`${n}`,note:`montant : ${eur2(m)} — sûreté personnelle/mobilière`,v:eur(0)});
+        lines.push({sub:true,k:'Taxes',note:'ni TPF ni CSI · émolument compris dans l’émolument unique',v:eur2(0)});
+      }
+    });
+
+    // 3) Formalités & débours
+    const emForm=s.emolForm||0, emFormTVA=emForm*0.20, deb=s.debours||0;
+    if(emForm>0 || deb>0){
+      total+=emForm+emFormTVA+deb;
+      lines.push({group:true,k:'Formalités & débours',v:eur(emForm+emFormTVA+deb)});
+      if(emForm>0){
+        lines.push({sub:true,k:'Émoluments de formalités HT',note:'état civil, bordereau, publication SPF, copies',v:eur2(emForm)});
+        lines.push({sub:true,k:'TVA 20 %',v:eur2(emFormTVA)});
+        push('Émoluments de formalités','Émolument',emForm,emFormTVA,emForm+emFormTVA);
+      }
+      if(deb>0){ lines.push({sub:true,k:'Débours / provision',v:eur2(deb)}); push('Débours / provision','Débours',0,0,deb); }
+    }
+
+    return {lines,total,base:sommeGar,pctLabel:'de la somme garantie',items};
+  }
+};
+
+/* ====================  MODULE : MAINLEVÉE D'HYPOTHÈQUE  ====================
+   Sources vérifiées (juin 2026) :
+   - Émolument FORFAITAIRE depuis 2020 : 78 € HT (garantie ≤ 77 090 €) / 150 € HT au-delà
+     (et non plus proportionnel). + TVA 20 %.
+   - Droit d'enregistrement : 25 € (exonéré pour les organismes de l'art. 882 CGI : HLM,
+     sociétés de crédit immobilier…).
+   - CSI sur la radiation : 0,10 % du montant garanti (0,05 % dans certains modes de radiation).
+   - Assiette = montant initial garanti (capital majoré des accessoires, usage +20 %),
+     et non le capital restant dû.
+   Vérifié : reproduit l'exemple du simulateur de la chambre de Paris (644 €).
+   ========================================================================= */
+const moduleMainlevee = {
+  id:'mainlevee', label:"Mainlevée d'hypothèque",
+  desc:"Émolument forfaitaire, droit d'enregistrement, CSI et formalités de radiation.",
+  state:{ principal:100000, accessoires:20, formalites:120, debours:175, exonere:false },
+
+  render(){
+    const s=this.state;
+    return `
+    <div class="grid">
+      <section class="card">
+        <h2>Paramètres de la mainlevée</h2>
+        <div class="hint">Sur le montant initial garanti (capital + accessoires), non le capital restant dû.</div>
+
+        <label class="f">
+          <span class="lab">Capital initial garanti</span>
+          <div class="priceField"><input type="text" inputmode="numeric" id="m_principal" value="${(s.principal||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+        </label>
+        <span class="microhint" id="m_hint"></span>
+
+        <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-soft);cursor:pointer;margin-top:6px">
+          <input type="checkbox" id="m_exonere" ${s.exonere?'checked':''}>
+          <span>Radiation par organisme exonéré <span style="color:var(--faint)">· art. 882 CGI (HLM, crédit immobilier)</span></span>
+        </label>
+
+        <details class="adv">
+          <summary>Options avancées</summary>
+          <div style="display:flex;flex-direction:column;gap:13px;margin-top:14px">
+            <label class="f" style="margin:0">
+              <span class="lab" style="justify-content:flex-start;gap:7px">Accessoires <span style="color:var(--faint);font-weight:400">majoration assiette</span></span>
+              <div class="priceField"><input type="text" inputmode="numeric" id="m_acc" value="${s.accessoires||0}"><span class="euro" style="font-size:18px">%</span></div>
+            </label>
+            <label class="f" style="margin:0">
+              <span class="lab">Émoluments de formalités HT <span>forfait</span></span>
+              <div class="priceField"><input type="text" inputmode="numeric" id="m_form" value="${(s.formalites||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+            </label>
+            <label class="f" style="margin:0">
+              <span class="lab">Débours <span>provision</span></span>
+              <div class="priceField"><input type="text" inputmode="numeric" id="m_debours" value="${(s.debours||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+            </label>
+          </div>
+        </details>
+      </section>
+
+      <section class="card" id="resultCard">
+        <h2>Coût de la mainlevée estimé</h2>
+        <div class="hint">Radiation automatique et gratuite 1 an après le terme du prêt : la mainlevée n'a de coût qu'en cas de vente ou de remboursement anticipé.</div>
+        <div id="results"></div>
+        <div class="actions">
+          <button class="btn" id="mcopy">Copier le détail</button>
+          <button class="btn ghost" id="mpdf">Exporter PDF</button>
+          <button class="btn ghost" id="mpdfmail">Envoyer par mail</button>
+          <button class="btn ghost" id="mreset">Réinitialiser</button>
+        </div>
+      </section>
+    </div>`;
+  },
+
+  compute(){
+    const s=this.state;
+    const lines=[];
+    const principal=s.principal||0;
+    if(!principal) return {lines:[],total:0,base:0};
+    const acc = 1 + Math.max(0,(s.accessoires||0))/100;
+    const assiette = principal*acc;
+
+    const emHT = assiette>77090 ? 150 : 78;
+    const tva  = emHT*0.20;
+    lines.push({group:true,k:'Émoluments du notaire',v:eur(emHT+tva)});
+    lines.push({sub:true,k:'Émolument de mainlevée',note: assiette>77090?'forfait 150 € HT (> 77 090 €)':'forfait 78 € HT (≤ 77 090 €)',v:eur2(emHT)});
+    lines.push({sub:true,k:'TVA 20 %',v:eur2(tva)});
+
+    const formHT=s.formalites||0, formTVA=formHT*0.20;
+    lines.push({group:true,k:'Formalités',v:eur(formHT+formTVA)});
+    lines.push({sub:true,k:'Émoluments de formalités HT',note:'état civil, copies, bordereau, publicité foncière',v:eur2(formHT)});
+    lines.push({sub:true,k:'TVA 20 %',v:eur2(formTVA)});
+
+    const droits = s.exonere ? 0 : 25;
+    const csi = assiette*0.0010;
+    lines.push({group:true,k:'Droits & taxes',v:eur(droits+csi)});
+    lines.push({sub:true,k:'Droit d\'enregistrement',note: s.exonere?'exonéré (art. 882 CGI)':'25 € (Trésor public)',v:eur2(droits)});
+    lines.push({sub:true,k:'Contribution de sécurité immobilière',note:'0,10 % du montant garanti (0,05 % selon le mode de radiation)',v:eur2(csi)});
+
+    const deb=s.debours||0;
+    if(deb>0){ lines.push({group:true,k:'Débours',v:eur(deb)}); lines.push({sub:true,k:'Provision',v:eur2(deb)}); }
+
+    const total = emHT+tva + formHT+formTVA + droits + csi + deb;
+    return {lines,total,base:assiette,pctLabel:'du montant garanti'};
+  }
+};
+
 /* ====================  ARBORESCENCE PAR MATIÈRE  ==================== */
 const ICON={
   family:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.1"/><path d="M3 20v-1a6 6 0 0 1 12 0v1"/><path d="M16.5 13.4A4 4 0 0 1 21 17.3V20"/></svg>',
@@ -1143,13 +1625,14 @@ const CATEGORIES=[
       soonCalc('succession','Frais de succession','Actif brut, acte de notoriété, attestation immobilière, TPF et CSI.'),
       soonCalc('regime','Liquidation de régime matrimonial','Communauté, récompenses et partage.'),
       soonCalc('partage','Partage','Droit de partage 2,5 % et émoluments.'),
-      soonCalc('changement','Changement de régime matrimonial','Émoluments et formalités.')
+      moduleChangement
     ]},
   { id:'immobilier', label:'Immobilier', svg:ICON.house,
     desc:"Frais d'acquisition et opérations de vente.",
     calculators:[
       moduleImmo,
-      soonCalc('mainlevee',"Mainlevée d'hypothèque",'Émoluments dégressifs de mainlevée.'),
+      moduleP,
+      moduleMainlevee,
       soonCalc('echange',"Échange d'immeubles",'Droits et émoluments d\'échange.')
     ]},
   { id:'immo_tech', label:'Immobilier technique', svg:ICON.ruler,
@@ -1243,7 +1726,7 @@ function renderResults(){
   const pct=r.base?(tot/r.base*100):0;
   box.innerHTML=`
     <div class="total"><span class="lbl">Total estimé</span><span class="val">${eur(tot)}</span></div>
-    <div class="pct">soit <b>${pctf(pct)}</b> du prix${arrondi?' · arrondi à la centaine sup.':''}</div>
+    ${r.noPct?'':`<div class="pct">soit <b>${pctf(pct)}</b> ${r.pctLabel||'du prix'}${arrondi?' · arrondi à la centaine sup.':''}</div>`}
     <ul class="lines">${r.lines.map(l=>`
       <li class="${l.group?'group':''} ${l.sub?'sub':''} ${l.discount?'discount':''}">
         <span class="k">${l.k}${l.note?`<small>${l.note}</small>`:''}</span>
@@ -1312,6 +1795,74 @@ function buildEstimateHTML(calc, baseLabel){
     </div>
   </div>`;
 }
+function buildComptaHTML(calc){
+  const r=calc.compute();
+  if(!r || !r.items || !r.items.length) return null;
+  const today=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  const totTVA=r.items.reduce((a,i)=>a+(i.tva||0),0);
+  const emolHT=r.items.filter(i=>i.nat==='Émolument').reduce((a,i)=>a+i.ht,0);
+  const taxes=r.items.filter(i=>i.nat==='Taxe').reduce((a,i)=>a+i.ttc,0);
+  const debours=r.items.filter(i=>i.nat==='Débours').reduce((a,i)=>a+i.ttc,0);
+  const grand=provision(r.total);
+  const vent=(lbl,val)=>`<div style="display:flex;justify-content:space-between;font-size:12.5px;color:#57534E;padding:3px 0"><span>${lbl}</span><span style="font-weight:600;color:#0F2238">${eur2(val)}</span></div>`;
+  const rows=r.items.map(it=>`<tr>
+     <td style="padding:6px 0;border-top:1px solid #EFEDEB;font-size:12px;color:#1C1917">${it.lib}</td>
+     <td style="padding:6px 8px;border-top:1px solid #EFEDEB;font-size:11px;color:#78716C;white-space:nowrap">${it.nat}</td>
+     <td style="padding:6px 0;border-top:1px solid #EFEDEB;text-align:right;font-size:12px;color:#57534E;white-space:nowrap">${it.ht?eur2(it.ht):'—'}</td>
+     <td style="padding:6px 0;border-top:1px solid #EFEDEB;text-align:right;font-size:12px;color:#57534E;white-space:nowrap">${it.tva?eur2(it.tva):'—'}</td>
+     <td style="padding:6px 0;border-top:1px solid #EFEDEB;text-align:right;font-size:12px;font-weight:600;color:#0F2238;white-space:nowrap">${eur2(it.ttc)}</td>
+   </tr>`).join('');
+  return `
+  <div style="font-family:'Segoe UI',Arial,sans-serif;color:#1C1917;width:680px">
+    <div style="background:#0F2238;color:#fff;padding:22px 28px;border-bottom:3px solid #C99A2E">
+      <div style="font-size:20px;font-weight:700;letter-spacing:.5px">FIDAL <span style="color:#C99A2E">/</span> NOTAIRES</div>
+      <div style="font-size:12px;color:#9DB4C0;margin-top:2px">COUNTDOWN — ventilation comptable</div>
+    </div>
+    <div style="padding:24px 28px">
+      <h1 style="font-size:18px;color:#0F2238;margin:0 0 2px">${calc.label} — détail comptable</h1>
+      <div style="font-size:12px;color:#78716C;margin-bottom:16px">${today} · sommes garanties : ${eur(r.base)}</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="text-align:left;font-size:10px;color:#78716C;text-transform:uppercase;letter-spacing:.4px;padding-bottom:5px">Désignation</th>
+          <th style="text-align:left;font-size:10px;color:#78716C;text-transform:uppercase;letter-spacing:.4px;padding-bottom:5px">Nature</th>
+          <th style="text-align:right;font-size:10px;color:#78716C;text-transform:uppercase;letter-spacing:.4px;padding-bottom:5px">HT</th>
+          <th style="text-align:right;font-size:10px;color:#78716C;text-transform:uppercase;letter-spacing:.4px;padding-bottom:5px">TVA</th>
+          <th style="text-align:right;font-size:10px;color:#78716C;text-transform:uppercase;letter-spacing:.4px;padding-bottom:5px">Total</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="margin-top:20px;border-top:2px solid #0F2238;padding-top:12px">
+        <div style="font-size:11px;color:#78716C;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Ventilation comptable</div>
+        ${vent('Émoluments HT',emolHT)}
+        ${vent('TVA (20 %)',totTVA)}
+        ${vent('Taxes & droits (État / SPF)',taxes)}
+        ${vent('Débours / provisions',debours)}
+      </div>
+      <div style="margin-top:14px;background:#33838B12;border:1px solid #33838B40;border-radius:8px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;color:#0F2238;font-weight:600">Total provisionné${r.total>=500?' (arrondi à la centaine sup.)':''}</span>
+        <span style="font-size:22px;color:#0F2238;font-weight:700">${eur(grand)}</span>
+      </div>
+      <p style="font-size:10.5px;color:#A8A29E;margin-top:22px;line-height:1.5;border-top:1px solid #E7E5E4;padding-top:12px">Document interne de ventilation comptable — barèmes en vigueur. Les débours sont des provisions. Généré par COUNTDOWN (FIDAL Notaires).</p>
+    </div>
+  </div>`;
+}
+function exportComptaPDF(calc, btn){
+  const html=buildComptaHTML(calc);
+  const old=btn?btn.textContent:'';
+  const restore=(t)=>{ if(btn){ btn.textContent=t||old||'PDF compta'; btn.disabled=false; } };
+  if(!html){ if(btn){ btn.textContent='Aucune garantie'; setTimeout(()=>restore(),1400); } return; }
+  if(btn){ btn.textContent='PDF…'; btn.disabled=true; }
+  ensureHtml2pdf().then(()=>{
+    const el=document.createElement('div');
+    el.style.cssText='position:fixed;left:-10000px;top:0;background:#fff';
+    el.innerHTML=html; document.body.appendChild(el);
+    const name=`COUNTDOWN_compta_${calc.label.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w]+/g,'_')}_${new Date().toISOString().slice(0,10)}.pdf`;
+    window.html2pdf().set({margin:[0,0,0,0],filename:name,image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}})
+      .from(el.firstElementChild).save()
+      .then(()=>{ document.body.removeChild(el); restore('Exporté ✓'); setTimeout(()=>restore(),1400); })
+      .catch(()=>{ if(el.parentNode) document.body.removeChild(el); restore(); });
+  }).catch(()=>{ restore('Hors-ligne'); setTimeout(()=>restore(),1800); });
+}
 function exportEstimatePDF(calc, baseLabel, btn){
   const html=buildEstimateHTML(calc, baseLabel);
   if(!html) return;
@@ -1374,6 +1925,9 @@ function show(){
     if(active.id==='immo'){ wireImmo(); renderResults(); }
     else if(active.id==='donation'){ wireDonation(); renderResults(); }
     else if(active.id==='dutreil'){ wireDutreil(); renderResults(); }
+    else if(active.id==='changement'){ wireChangement(); renderResults(); }
+    else if(active.id==='pret'){ wirePret(); renderResults(); }
+    else if(active.id==='mainlevee'){ wireMainlevee(); renderResults(); }
   }
   const foot=document.getElementById('foot');
   if(foot) foot.style.display = (view==='calculator' && active && active.id==='immo') ? '' : 'none';
@@ -1413,7 +1967,7 @@ function wireImmo(){
     const gh=$('garHint');
     if(gh) gh.textContent = isNeuf
       ? 'Hypothèque conventionnelle : TPF 0,715 % sur les prêts hors aidés.'
-      : 'Bien existant : hypothèque légale spéciale (ex‑PPD), exonérée de TPF.';
+      : 'Bien existant : hypothèque légale spéciale du prêteur de deniers, exonérée de TPF.';
   }
   function updateDmtoInfo(){
     const info=$('dmtoInfo'); if(!info) return;
@@ -1454,6 +2008,7 @@ function wireImmo(){
   $('financement').onchange=()=>{ s.financement=$('financement').value; syncUI(); renderResults(); };
   bindNum($('pretAutres'),'pretAutres');
   bindNum($('pretAides'),'pretAides');
+  const accImmo=$('accessoires'); if(accImmo){ accImmo.oninput=()=>{ s.accessoires=Math.max(0,parseNum(accImmo.value)); renderResults(); }; }
 
   const er=$('emolRetenu');
   if(er) er.oninput=()=>{ const v=er.value.trim(); s.emolRetenu = v===''?null:parseNum(v); renderResults(); };
@@ -1463,7 +2018,7 @@ function wireImmo(){
   syncUI();
 
   $('reset').onclick=()=>{
-    moduleImmo.state={prix:250000,mobilier:0,type:'bati',primo:false,dept:'75',dmto:0.0632,override:false,financement:'sans',pretAutres:0,pretAides:0,usage:'resid',emolRetenu:null,debours:1100,deboursGar:300}; mount();
+    moduleImmo.state={prix:250000,mobilier:0,type:'bati',primo:false,dept:'75',dmto:0.0632,override:false,financement:'sans',pretAutres:0,pretAides:0,accessoires:20,usage:'resid',emolRetenu:null,debours:1100,deboursGar:300}; mount();
   };
   $('copy').onclick=()=>{
     const r=moduleImmo.compute();
@@ -1646,6 +2201,139 @@ function wireDutreil(){
   };
   $('dupdf').onclick=()=>exportEstimatePDF(moduleDutreil,'Valeur des titres',$('dupdf'));
   $('dupdfmail').onclick=()=>emailEstimatePDF(moduleDutreil,'Valeur des titres',$('dupdfmail'));
+}
+
+/* ---- Câblage du module changement de régime matrimonial ---- */
+function wireChangement(){
+  const s=moduleChangement.state;
+  const $=id=>document.getElementById(id);
+  const bindNum=(el,key)=>{ if(!el) return; el.oninput=()=>{ s[key]=parseNum(el.value); renderResults(); }; el.onblur=()=>{ el.value=(s[key]||0).toLocaleString('fr-FR'); }; };
+
+  function syncScenario(){
+    const aw=$('c_apportWrap'); if(aw) aw.style.display=s.scenario==='apport'?'block':'none';
+    const sw=$('c_sepWrap');    if(sw) sw.style.display=s.scenario==='separation'?'block':'none';
+    const h=$('c_scenHint');
+    if(h) h.textContent = s.scenario==='simple'
+      ? 'Simple changement ou aménagement, sans apport : émolument forfaitaire + droit fixe de 125 €.'
+      : s.scenario==='apport'
+      ? 'Un bien propre devient commun : émolument (forfait ou proportionnel) + TPF et CSI sur la quote-part transmise.'
+      : 'Passage en séparation : liquidation-partage de la communauté + droit de partage de 2,5 %.';
+  }
+  function syncQp(){
+    const h=$('c_qpHint');
+    if(h && s.scenario==='apport'){ const b=(s.apportImmeuble||0)*Math.min(100,Math.max(0,s.quotePart||0))/100; h.textContent=`Assiette TPF/CSI : ${eur2(b)}.`; }
+  }
+
+  document.querySelectorAll('#c_scenario button').forEach(b=>b.onclick=()=>{
+    s.scenario=b.dataset.v;
+    document.querySelectorAll('#c_scenario button').forEach(x=>x.classList.toggle('on',x===b));
+    syncScenario(); renderResults();
+  });
+
+  const ap=$('c_apport'); if(ap){ ap.oninput=()=>{ s.apportImmeuble=parseNum(ap.value); syncQp(); renderResults(); }; ap.onblur=()=>{ ap.value=(s.apportImmeuble||0).toLocaleString('fr-FR'); }; }
+  const qp=$('c_qp'); if(qp){ qp.oninput=()=>{ s.quotePart=Math.max(0,Math.min(100,Math.round(parseNum(qp.value)))); syncQp(); renderResults(); }; }
+  bindNum($('c_actif'),'actifCommun');
+  bindNum($('c_avocat'),'honorAvocat');
+  bindNum($('c_debours'),'debours');
+
+  const hg=$('c_homolog');
+  if(hg) hg.onchange=()=>{ s.homologation=hg.checked; const w=$('c_avocatWrap'); if(w) w.style.display=s.homologation?'block':'none'; renderResults(); };
+
+  syncScenario(); syncQp();
+
+  $('creset').onclick=()=>{ moduleChangement.state={scenario:'simple',apportImmeuble:300000,quotePart:50,actifCommun:400000,homologation:false,honorAvocat:0,debours:400}; mount(); };
+  $('ccopy').onclick=()=>{
+    const r=moduleChangement.compute();
+    const txt=`FIDAL Notaires — COUNTDOWN — Changement de régime matrimonial (estimation)\n`+
+      r.lines.map(l=>`${l.sub?'  ':''}${l.k.replace(/\s+/g,' ')}: ${l.v}`).join('\n')+
+      `\nTOTAL: ${eur(provision(r.total))}`;
+    navigator.clipboard?.writeText(txt);
+    const btn=$('ccopy'); btn.textContent='Copié ✓'; setTimeout(()=>btn.textContent='Copier le détail',1400);
+  };
+  $('cpdf').onclick=()=>exportEstimatePDF(moduleChangement,'Opération',$('cpdf'));
+  $('cpdfmail').onclick=()=>emailEstimatePDF(moduleChangement,'Opération',$('cpdfmail'));
+}
+
+/* ---- Câblage du module frais de prêt hypothécaire ---- */
+function wirePret(){
+  const s=moduleP.state;
+  const $=id=>document.getElementById(id);
+
+  function syncCfg(){
+    const h=$('p_cfgHint'); if(!h) return;
+    h.textContent = {
+      autonome:"Prêt bancaire sous seing privé : émolument plein sur la somme garantie (A444-136, 2°).",
+      debiteur:"Sûreté(s) du débiteur dans l’acte de prêt notarié : aucun émolument distinct (disposition dépendante).",
+      separe:"Sûreté constituée par acte séparé : moitié de l’émolument de l’acte principal.",
+      tiers:"Sûreté d’un tiers dans l’acte de prêt notarié : quart de l’émolument de l’acte principal."
+    }[s.emolCfg] || '';
+  }
+  const cfg=$('p_cfg'); if(cfg) cfg.onchange=()=>{ s.emolCfg=cfg.value; syncCfg(); renderResults(); };
+
+  const prix=$('p_prix');
+  if(prix){ prix.oninput=()=>{ s.prixVente=parseNum(prix.value); renderResults(); }; prix.onblur=()=>{ prix.value=(s.prixVente||0).toLocaleString('fr-FR'); }; }
+
+  // Lignes de garanties (dynamiques)
+  (s.garanties||[]).forEach((g,i)=>{
+    const ty=$(`p_g${i}_type`);
+    if(ty) ty.onchange=()=>{ g.type=ty.value; if(!(GTYPES[g.type]||GTYPES.hls).aides) g.aides=0; mount(); };
+    const mo=$(`p_g${i}_montant`);
+    if(mo){ mo.oninput=()=>{ g.montant=parseNum(mo.value); renderResults(); }; mo.onblur=()=>{ mo.value=(g.montant||0).toLocaleString('fr-FR'); }; }
+    const ai=$(`p_g${i}_aides`);
+    if(ai){ ai.oninput=()=>{ g.aides=parseNum(ai.value); renderResults(); }; ai.onblur=()=>{ ai.value=(g.aides||0).toLocaleString('fr-FR'); }; }
+    const del=$(`p_g${i}_del`);
+    if(del) del.onclick=()=>{ s.garanties.splice(i,1); if(s.garanties.length===0) s.garanties.push({type:'hls',montant:0,aides:0}); mount(); };
+  });
+  const add=$('p_gadd'); if(add) add.onclick=()=>{ s.garanties.push({type:'hc',montant:0,aides:0}); mount(); };
+
+  const acc=$('p_acc'); if(acc) acc.oninput=()=>{ s.accessoires=Math.max(0,parseNum(acc.value)); renderResults(); };
+  const ef=$('p_emolForm'); if(ef){ ef.oninput=()=>{ s.emolForm=parseNum(ef.value); renderResults(); }; ef.onblur=()=>{ ef.value=(s.emolForm||0).toLocaleString('fr-FR'); }; }
+  const db=$('p_debours'); if(db){ db.oninput=()=>{ s.debours=parseNum(db.value); renderResults(); }; db.onblur=()=>{ db.value=(s.debours||0).toLocaleString('fr-FR'); }; }
+
+  syncCfg();
+
+  $('preset').onclick=()=>{ moduleP.state={prixVente:250000,emolCfg:'autonome',garanties:[{type:'hls',montant:200000,aides:0}],accessoires:20,emolForm:120,debours:180}; mount(); };
+  $('pcopy').onclick=()=>{
+    const r=moduleP.compute();
+    const txt=`FIDAL Notaires — COUNTDOWN — Frais de prêt hypothécaire (estimation)\nSomme garantie : ${eur(r.base)}\n`+
+      r.lines.map(l=>`${l.sub?'  ':''}${l.k.replace(/\s+/g,' ')}: ${l.v}`).join('\n')+
+      `\nTOTAL: ${eur(provision(r.total))}`;
+    navigator.clipboard?.writeText(txt);
+    const btn=$('pcopy'); btn.textContent='Copié ✓'; setTimeout(()=>btn.textContent='Copier le détail',1400);
+  };
+  $('ppdf').onclick=()=>exportEstimatePDF(moduleP,'Somme garantie',$('ppdf'));
+  $('pcompta').onclick=()=>exportComptaPDF(moduleP,$('pcompta'));
+  $('ppdfmail').onclick=()=>emailEstimatePDF(moduleP,'Somme garantie',$('ppdfmail'));
+}
+
+/* ---- Câblage du module mainlevée ---- */
+function wireMainlevee(){
+  const s=moduleMainlevee.state;
+  const $=id=>document.getElementById(id);
+  const num=(el,key,after)=>{ if(!el) return; el.oninput=()=>{ s[key]=parseNum(el.value); if(after)after(); renderResults(); }; el.onblur=()=>{ el.value=(s[key]||0).toLocaleString('fr-FR'); }; };
+  function syncHint(){
+    const h=$('m_hint'); if(!h) return;
+    const a=(s.principal||0)*(1+Math.max(0,(s.accessoires||0))/100);
+    h.textContent=`Montant garanti retenu : ${eur2(a)} → émolument ${a>77090?'150':'78'} € HT.`;
+  }
+  num($('m_principal'),'principal',syncHint);
+  const acc=$('m_acc'); if(acc) acc.oninput=()=>{ s.accessoires=Math.max(0,parseNum(acc.value)); syncHint(); renderResults(); };
+  num($('m_form'),'formalites');
+  num($('m_debours'),'debours');
+  const ex=$('m_exonere'); if(ex) ex.onchange=()=>{ s.exonere=ex.checked; renderResults(); };
+  syncHint();
+
+  $('mreset').onclick=()=>{ moduleMainlevee.state={principal:100000,accessoires:20,formalites:120,debours:175,exonere:false}; mount(); };
+  $('mcopy').onclick=()=>{
+    const r=moduleMainlevee.compute();
+    const txt=`FIDAL Notaires — COUNTDOWN — Mainlevée d'hypothèque (estimation)\nMontant garanti : ${eur(r.base)}\n`+
+      r.lines.map(l=>`${l.sub?'  ':''}${l.k.replace(/\s+/g,' ')}: ${l.v}`).join('\n')+
+      `\nTOTAL: ${eur(provision(r.total))}`;
+    navigator.clipboard?.writeText(txt);
+    const btn=$('mcopy'); btn.textContent='Copié ✓'; setTimeout(()=>btn.textContent='Copier le détail',1400);
+  };
+  $('mpdf').onclick=()=>exportEstimatePDF(moduleMainlevee,'Montant garanti',$('mpdf'));
+  $('mpdfmail').onclick=()=>emailEstimatePDF(moduleMainlevee,'Montant garanti',$('mpdfmail'));
 }
 
 /* ====================  DICTÉE VOCALE  ==================== */
