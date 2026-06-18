@@ -608,7 +608,7 @@ const moduleDonation = {
   state:{ lien:'enfant', donateurs:1, donataires:1, partD1:50, ageUsuf2:71,
           immeuble:true, valImmeuble:300000, usage:'resid', societe:false, valSociete:0,
           liquidites:false, valLiquidites:0,
-          demembre:false, ageUsuf:71, handicap:false, donFamilial:false, debours:400, emolRetenu:null,
+          demembre:false, ageUsuf:71, reversion:false, ageRevBenef:71, handicap:false, donFamilial:false, debours:400, emolRetenu:null,
           donAnt:[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]] },
 
   render(){
@@ -659,6 +659,21 @@ const moduleDonation = {
               <input type="text" inputmode="numeric" id="d_age2" value="${s.ageUsuf2}">
               <span class="microhint" id="d_age2Hint"></span>
             </label>
+
+            <div style="border-top:1px dashed var(--line);padding-top:12px;margin-top:6px">
+              <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-soft);cursor:pointer">
+                <input type="checkbox" id="d_reversion" ${s.reversion?'checked':''}>
+                <span>Réversion d'usufruit <span style="color:var(--faint)">· au profit du conjoint survivant</span></span>
+              </label>
+              <div id="d_revWrap" style="display:${s.reversion?'block':'none'};margin-top:10px">
+                <label class="f" id="d_ageRevWrap" style="display:${(s.donateurs||1)===2?'none':'block'}">
+                  <span class="lab">Âge du bénéficiaire <span>conjoint réversataire</span></span>
+                  <input type="text" inputmode="numeric" id="d_ageRev" value="${s.ageRevBenef}">
+                  <span class="microhint" id="d_ageRevHint"></span>
+                </label>
+                <span class="microhint" id="d_revNote"></span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -880,6 +895,37 @@ const moduleDonation = {
       lines.push({sub:true,k:'Contribution de sécurité immobilière',v:eur2(csi)});
     }
 
+    // 3bis. Réversion d'usufruit au profit du conjoint survivant (clause d'usufruit successif)
+    //   Tableau 493-1 — donation conjonctive, section B.
+    //   • Enregistrement : la réversion n'étant pas taxée proportionnellement au jour de l'acte
+    //     (usufruit successif non ouvert), elle impose un droit fixe de 125 € (art. 680 CGI),
+    //     sauf si les DMTG dépassent déjà 125 € (cas 3-4 : aucun droit fixe en plus).
+    //   • TPF : même plancher de 125 € (et non le minimum de perception de 25 €) en présence
+    //     d'immeuble, sauf si la TPF proportionnelle dépasse déjà 125 €.
+    //   • CSI : perception distincte de 0,10 % sur la valeur de l'usufruit successif « en second »
+    //     évalué au jour de l'acte (art. 669 CGI), min 15 € — bien propre : âge du conjoint
+    //     bénéficiaire ; bien commun (2 donateurs) : usufruit réversible le plus fort.
+    //   Au décès du donateur : exonéré si conjoint/PACS (CGI 796-0 bis/quater), taxé sinon.
+    let revEnr=0, revTpf=0, revCsi=0;
+    if(s.reversion && s.demembre){
+      revEnr = Math.max(0, 125 - droits);                       // plancher 125 € sur les droits d'enregistrement
+      if(imm>0){
+        revTpf = Math.max(0, 125 - tpf);                        // plancher 125 € sur la TPF
+        const usuf = (nD===2)
+          ? (1 - Math.min(fractionNP(donors[0].age), fractionNP(donors[1].age)))  // bien commun : usufruit réversible le plus fort
+          : (1 - fractionNP(s.ageRevBenef||0));                 // bien propre : usufruit du conjoint bénéficiaire
+        revCsi = Math.max(imm*usuf*0.0010, 15);                 // CSI 0,10 % sur l'usufruit successif, min 15 €
+      }
+      const revTotal = revEnr + revTpf + revCsi;
+      lines.push({group:true,k:'Réversion d\'usufruit (conjoint survivant)',v:eur(revTotal)});
+      lines.push({sub:true,k:'Droit fixe d\'enregistrement',note: droits>=125 ? 'art. 680 CGI — absorbé (DMTG > 125 €)' : 'art. 680 CGI — porte l\'enregistrement à 125 € min.',v:eur2(revEnr)});
+      if(imm>0){
+        lines.push({sub:true,k:'Droit fixe de publicité foncière',note: tpf>=125 ? 'absorbé (TPF > 125 €)' : 'porte la TPF à 125 € min. (et non 25 €)',v:eur2(revTpf)});
+        lines.push({sub:true,k:'CSI sur usufruit successif',note: (nD===2 ? '0,10 % — usufruit réversible le plus fort (bien commun)' : '0,10 % — usufruit du conjoint bénéficiaire (bien propre)')+', min 15 €',v:eur2(revCsi)});
+      }
+      lines.push({sub:true,k:'Au décès du donateur',note:'exonéré si conjoint/PACS (CGI 796-0 bis/quater) ; taxé sinon, selon le lien stipulant→bénéficiaire',v:'différé'});
+    }
+
     // 4. Débours & formalités
     const emForm = 420, emFormTVA = emForm*0.20;          // émoluments de formalités (HT) + TVA 20 %
     const debImm = imm>0?600:0;                            // forfait formalités immeuble
@@ -891,7 +937,7 @@ const moduleDonation = {
     lines.push({sub:true,k:'TVA 20 %',v:eur2(emFormTVA)});
     if(deb>0) lines.push({sub:true,k:'Débours / provision',note:debNote,v:eur2(deb)});
 
-    const total = emTTC + droits + tpf + csi + emForm + emFormTVA + deb;
+    const total = emTTC + droits + tpf + csi + revEnr + revTpf + revCsi + emForm + emFormTVA + deb;
     return {lines,total,base:pp,remise,emolFull:emHT};
   }
 };
@@ -1472,7 +1518,7 @@ function wireDonation(){
   document.querySelectorAll('#d_donateurs button').forEach(b=>b.onclick=()=>{
     s.donateurs=parseInt(b.dataset.v);
     document.querySelectorAll('#d_donateurs button').forEach(x=>x.classList.toggle('on',x===b));
-    updatePart(); updateAnt(); renderResults();
+    updatePart(); updateAnt(); updateRev(); renderResults();
   });
   $('d_donataires').onchange=()=>{ s.donataires=parseInt($('d_donataires').value); updateAnt(); renderResults(); };
   const part=$('d_partD1');
@@ -1515,12 +1561,27 @@ function wireDonation(){
     s.demembre=b.dataset.v==='np';
     document.querySelectorAll('#d_dem button').forEach(x=>x.classList.toggle('on',x===b));
     $('d_ageWrap').style.display=s.demembre?'block':'none';
-    updateAge(); renderResults();
+    updateAge(); updateRev(); renderResults();
   });
   const age=$('d_age');
   age.oninput=()=>{ s.ageUsuf=Math.max(0,Math.min(120,parseNum(age.value))); updateAge(); renderResults(); };
   const age2=$('d_age2');
   age2.oninput=()=>{ s.ageUsuf2=Math.max(0,Math.min(120,parseNum(age2.value))); updateAge(); renderResults(); };
+
+  function updateRev(){
+    const two=(s.donateurs||1)===2;
+    const rw=$('d_revWrap'); if(rw) rw.style.display=s.reversion?'block':'none';
+    const arw=$('d_ageRevWrap'); if(arw) arw.style.display=(s.reversion && !two)?'block':'none';
+    const rn=$('d_revNote');
+    if(rn) rn.textContent = !s.reversion ? '' : (two
+      ? 'Bien commun : réversion croisée entre les deux donateurs — CSI sur l\'usufruit réversible le plus fort.'
+      : 'Bien propre : CSI sur l\'usufruit successif du conjoint bénéficiaire, selon son âge.');
+    const arh=$('d_ageRevHint'); if(arh && s.reversion && !two){ arh.textContent=`Usufruit successif évalué à ${Math.round((1-fractionNP(s.ageRevBenef||0))*100)} % (art. 669 CGI).`; }
+  }
+  const rev=$('d_reversion');
+  if(rev) rev.onchange=()=>{ s.reversion=rev.checked; updateRev(); renderResults(); };
+  const ageRev=$('d_ageRev');
+  if(ageRev) ageRev.oninput=()=>{ s.ageRevBenef=Math.max(0,Math.min(120,parseNum(ageRev.value))); updateRev(); renderResults(); };
 
   $('d_handicap').onchange=()=>{ s.handicap=$('d_handicap').checked; renderResults(); };
   $('d_790').onchange=()=>{ s.donFamilial=$('d_790').checked; renderResults(); };
@@ -1528,10 +1589,10 @@ function wireDonation(){
   const der=$('emolRetenu');
   if(der) der.oninput=()=>{ const v=der.value.trim(); s.emolRetenu = v===''?null:parseNum(v); renderResults(); };
 
-  updateAge(); updatePart(); updateAnt();
+  updateAge(); updatePart(); updateAnt(); updateRev();
 
   $('dreset').onclick=()=>{
-    moduleDonation.state={lien:'enfant',donateurs:1,donataires:1,partD1:50,ageUsuf2:71,immeuble:true,valImmeuble:300000,usage:'resid',societe:false,valSociete:0,liquidites:false,valLiquidites:0,demembre:false,ageUsuf:71,handicap:false,donFamilial:false,debours:400,emolRetenu:null,donAnt:[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}; mount();
+    moduleDonation.state={lien:'enfant',donateurs:1,donataires:1,partD1:50,ageUsuf2:71,immeuble:true,valImmeuble:300000,usage:'resid',societe:false,valSociete:0,liquidites:false,valLiquidites:0,demembre:false,ageUsuf:71,reversion:false,ageRevBenef:71,handicap:false,donFamilial:false,debours:400,emolRetenu:null,donAnt:[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}; mount();
   };
   $('dcopy').onclick=()=>{
     const r=moduleDonation.compute();
