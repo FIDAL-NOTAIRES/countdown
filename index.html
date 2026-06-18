@@ -182,7 +182,7 @@
   .placeholder{text-align:center;color:var(--ink-soft);padding:40px 10px;font-size:14px}
   .placeholder .big{font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;font-size:18px;color:var(--ink);margin-bottom:6px}
 
-  .actions{display:flex;gap:10px;margin-top:18px}
+  .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
   .btn{flex:1;padding:11px;border-radius:10px;border:1px solid var(--ink);background:#fff;color:var(--ink);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:.14s}
   .btn:hover{background:var(--ink);color:#fff}
   .btn.ghost{border-color:var(--line);color:var(--ink-soft)}
@@ -1357,7 +1357,7 @@ const moduleP = {
       <div style="border:1px solid var(--line);border-radius:12px;padding:13px;margin-top:11px">
         <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">
           <span style="width:22px;height:22px;border-radius:50%;background:#0F2238;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</span>
-          <select id="p_g${i}_type" style="flex:1">${typeOpts}</select>
+          <select id="p_g${i}_type" style="flex:1;min-width:0">${typeOpts}</select>
           <button class="btn ghost" id="p_g${i}_del" title="Retirer cette garantie" style="padding:6px 11px;flex-shrink:0">✕</button>
         </div>
         <label class="f" style="margin:0">
