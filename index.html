@@ -1605,6 +1605,191 @@ const moduleMainlevee = {
   }
 };
 
+/* ====================  MODULE : PROMESSE DE VENTE  ====================
+   Promesse unilatérale (PUV) ou synallagmatique (compromis) reçue en la forme
+   AUTHENTIQUE. Particularité (vérifiée Légifrance / Notaires de France) :
+   la promesse N'A PAS d'émolument proportionnel tarifé — le tarif des notaires
+   ne fixe pas d'émolument (A444-91 ne vise que la vente). La rémunération est
+   un HONORAIRE LIBRE (art. L444-1 al. 3 C. com.), donc PAS de remise R444-10.
+   - Honoraire libre HT (barème indicatif FIDAL, ajustable) + TVA 20 %.
+   - Droit d'enregistrement : droit fixe 125 € (CGI art. 680), en option.
+   - Débours / formalités : provision.
+   Le sélecteur de durée pilote le régime de forme (L290-1 CCH : acte authentique
+   obligatoire à peine de nullité si durée > 18 mois et promettant personne
+   physique) et, pour la PUV > 18 mois, le contrôle de l'indemnité d'immobilisation
+   minimale de 5 % du prix (L290-2 CCH). L'indemnité d'immobilisation N'EST PAS un
+   frais d'acte (somme séquestrée, imputée sur le prix) : elle n'entre pas au total.
+   ============================================================ */
+const modulePromesse = {
+  id:'promesse', label:"Promesse de vente",
+  desc:"PUV ou compromis authentique : honoraire libre (L444-1), enregistrement, contrôle L290-1 / L290-2.",
+  state:{ type:'puv', prix:250000, duree:'inf18', indemnite:null, honoraire:300, enr:true, publicite:'non', fraisLF:0, copiesPages:50, tarifCopiePage:0.30, debours:0 },
+
+  render(){
+    const s=this.state;
+    return `
+    <div class="grid">
+      <section class="card">
+        <h2>Paramètres de la promesse</h2>
+        <div class="hint">Acte reçu en la forme authentique. La promesse n'a pas d'émolument tarifé : la rémunération est un honoraire libre (art. L444-1 al. 3 C. com.).</div>
+
+        <span class="sectitle">La promesse <span>nature, durée, prix</span></span>
+
+        <label class="f">
+          <span class="lab">Type de promesse</span>
+          <div class="seg" id="p_type">
+            <button data-v="puv" class="${s.type==='puv'?'on':''}">Unilatérale (PUV)</button>
+            <button data-v="psv" class="${s.type==='psv'?'on':''}">Synallagmatique (compromis)</button>
+          </div>
+        </label>
+
+        <label class="f">
+          <span class="lab">Durée de la promesse <span>conditionne la forme (L290-1 CCH)</span></span>
+          <div class="seg" id="p_duree">
+            <button data-v="inf18" class="${s.duree==='inf18'?'on':''}">≤ 18 mois</button>
+            <button data-v="sup18" class="${s.duree==='sup18'?'on':''}">&gt; 18 mois · pers. physique</button>
+          </div>
+          <span class="microhint" id="p_dureeHint"></span>
+        </label>
+
+        <label class="f">
+          <span class="lab">Prix de vente convenu</span>
+          <div class="priceField"><input type="text" inputmode="numeric" id="p_prix" value="${(s.prix||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+        </label>
+
+        <label class="f">
+          <span class="lab" id="p_indemLab">Indemnité d'immobilisation <span>séquestrée — hors frais d'acte</span></span>
+          <div class="priceField"><input type="text" inputmode="numeric" id="p_indem" value="${(s.indemnite==null ? Math.round((s.prix||0)*0.05) : s.indemnite).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+          <span class="microhint" id="p_indemHint"></span>
+        </label>
+
+        <span class="sectitle" style="margin-top:6px;border-top:1px solid var(--line);padding-top:14px">Honoraires &amp; frais <span>acte non tarifé</span></span>
+
+        <label class="f">
+          <span class="lab">Honoraire libre HT <span>barème indicatif FIDAL · ajustable</span></span>
+          <div class="priceField"><input type="text" inputmode="numeric" id="p_hono" value="${(s.honoraire||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+        </label>
+
+        <label class="f">
+          <span class="lab">Copies en nombre <span>pages — émolument A444-173</span></span>
+          <div class="priceField"><input type="text" inputmode="numeric" id="p_copies" value="${(s.copiesPages||0).toLocaleString('fr-FR')}"><span class="euro" style="font-size:18px">p.</span></div>
+          <span class="microhint" id="p_copiesHint"></span>
+        </label>
+
+        <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-soft);cursor:pointer;margin-top:6px">
+          <input type="checkbox" id="p_enr" ${s.enr?'checked':''}>
+          <span>Enregistrement de l'acte <span style="color:var(--faint)">· droit fixe 125 € (CGI art. 680)</span></span>
+        </label>
+
+        <label class="f" style="margin-top:14px">
+          <span class="lab">Publicité de la promesse <span>opposabilité aux tiers</span></span>
+          <div class="seg" id="p_pub">
+            <button data-v="non" class="${s.publicite==='non'?'on':''}">Non publiée</button>
+            <button data-v="spf" class="${s.publicite==='spf'?'on':''}">SPF</button>
+            <button data-v="lf" class="${s.publicite==='lf'?'on':''}">Livre foncier</button>
+          </div>
+          <span class="microhint" id="p_pubHint"></span>
+        </label>
+
+        <label class="f" id="p_lfWrap" style="display:none">
+          <span class="lab">Frais de prénotation HT <span>livre foncier · imputable sur l'acte définitif</span></span>
+          <div class="priceField"><input type="text" inputmode="numeric" id="p_lf" value="${(s.fraisLF||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+          <span class="microhint" id="p_lfHint"></span>
+        </label>
+
+        <details class="adv">
+          <summary>Options avancées</summary>
+          <div style="display:flex;flex-direction:column;gap:13px;margin-top:14px">
+            <label class="f" style="margin:0">
+              <span class="lab">Tarif de la copie <span>HT par page — A444-173 · à valider</span></span>
+              <div class="priceField"><input type="text" inputmode="decimal" id="p_tarifcopie" value="${String(s.tarifCopiePage||0).replace('.',',')}"><span class="euro">€</span></div>
+            </label>
+            <label class="f" style="margin:0">
+              <span class="lab">Débours <span>provision</span></span>
+              <div class="priceField"><input type="text" inputmode="numeric" id="p_debours" value="${(s.debours||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+            </label>
+          </div>
+        </details>
+
+        <div id="p_legal"></div>
+      </section>
+
+      <section class="card" id="resultCard">
+        <h2>Coût de la promesse estimé</h2>
+        <div class="hint">Décompte prévisionnel des frais d'acte. L'indemnité d'immobilisation n'est pas un frais d'acte : elle est séquestrée puis imputée sur le prix.</div>
+        <div id="results"></div>
+        <div class="actions">
+          <button class="btn" id="pmcopy">Copier le détail</button>
+          <button class="btn ghost" id="pmpdf">PDF</button>
+          <button class="btn ghost" id="pmpdfclient">PDF client</button>
+          <button class="btn ghost" id="pmpdfmail">Envoyer par mail</button>
+          <button class="btn ghost" id="pmreset">Réinitialiser</button>
+        </div>
+      </section>
+    </div>`;
+  },
+
+  compute(){
+    const s=this.state;
+    const lines=[];
+    const prix=s.prix||0;
+    if(!prix) return {lines:[],total:0,base:0};
+
+    const honoHT=Math.max(0,s.honoraire||0);
+    const tva=honoHT*0.20;
+    lines.push({group:true,k:'Honoraires de l\'acte',v:eur(honoHT+tva)});
+    lines.push({sub:true,k:'Honoraire libre HT',note:'acte non tarifé — art. L444-1 al. 3 C. com.',v:eur2(honoHT)});
+    lines.push({sub:true,k:'TVA 20 %',v:eur2(tva)});
+
+    const enr = s.enr ? 125 : 0;
+    lines.push({group:true,k:'Droits & taxes',v:eur(enr)});
+    lines.push({sub:true,k:'Droit d\'enregistrement',note: s.enr?'droit fixe — CGI art. 680':'acte non enregistré',v:eur2(enr)});
+
+    // Publicité de la promesse
+    let pub=0;
+    if(s.publicite==='spf'){
+      const csi=Math.max(prix*0.0010,15);
+      pub=csi;
+      lines.push({group:true,k:'Publicité foncière (SPF)',v:eur(csi)});
+      lines.push({sub:true,k:'Contribution de sécurité immobilière',note:'0,10 % du prix, min. 15 € — art. 879 CGI',v:eur2(csi)});
+    } else if(s.publicite==='lf'){
+      const lfHT=Math.max(0,s.fraisLF||0), lfTVA=lfHT*0.20;
+      pub=lfHT+lfTVA;
+      lines.push({group:true,k:'Publicité au livre foncier',note:'Alsace-Moselle',v:eur(lfHT+lfTVA)});
+      lines.push({sub:true,k:'Frais de prénotation HT',note:'art. A444-177 3° — imputable sur l\'acte définitif',v:eur2(lfHT)});
+      lines.push({sub:true,k:'TVA 20 %',v:eur2(lfTVA)});
+    }
+
+    // Émoluments de formalités : copies (A444-173) + forfait si acte destiné à être publié (A444-171 n°194)
+    const pages=Math.max(0,s.copiesPages||0), tarifP=Math.max(0,s.tarifCopiePage||0);
+    const copiesHT=pages*tarifP;
+    const forfaitHT=(s.publicite==='spf')?339.58:0;
+    const formHT=copiesHT+forfaitHT, formTVA=formHT*0.20;
+    if(formHT>0){
+      lines.push({group:true,k:'Émoluments de formalités',v:eur(formHT+formTVA)});
+      lines.push({sub:true,k:`Copies en nombre (${pages} p. × ${eur2(tarifP)})`,note:'A444-173',v:eur2(copiesHT)});
+      if(forfaitHT>0) lines.push({sub:true,k:'Forfait de formalités (acte publié)',note:'A444-171 n°194',v:eur2(forfaitHT)});
+      lines.push({sub:true,k:'TVA 20 %',v:eur2(formTVA)});
+    }
+
+    const deb=s.debours||0;
+    if(deb>0){
+      lines.push({group:true,k:'Débours',v:eur(deb)});
+      lines.push({sub:true,k:'Provision',v:eur2(deb)});
+    }
+
+    const total = honoHT+tva + enr + pub + formHT+formTVA + deb;
+
+    // Pour information (hors frais d'acte) : indemnité d'immobilisation (PUV) ou dépôt de garantie (compromis), par défaut 5 % du prix
+    const indemEff = (s.indemnite==null) ? prix*0.05 : Math.max(0,s.indemnite||0);
+    const pctIndem = prix ? indemEff/prix*100 : 0;
+    const indemLabel = (s.type==='puv') ? "Indemnité d'immobilisation" : "Dépôt de garantie";
+    const aside=[{k:indemLabel, note:`${pctf(pctIndem)} du prix · séquestré, imputé sur le prix`, v:eur2(indemEff)}];
+
+    return {lines,total,base:prix,noPct:true,pctLabel:'du prix',aside};
+  }
+};
+
 /* ====================  ARBORESCENCE PAR MATIÈRE  ==================== */
 const ICON={
   family:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.1"/><path d="M3 20v-1a6 6 0 0 1 12 0v1"/><path d="M16.5 13.4A4 4 0 0 1 21 17.3V20"/></svg>',
@@ -1631,6 +1816,7 @@ const CATEGORIES=[
     desc:"Frais d'acquisition et opérations de vente.",
     calculators:[
       moduleImmo,
+      modulePromesse,
       moduleP,
       moduleMainlevee,
       soonCalc('echange',"Échange d'immeubles",'Droits et émoluments d\'échange.')
@@ -1724,14 +1910,23 @@ function renderResults(){
   const tot=provision(r.total);
   const arrondi = r.total>=500;
   const pct=r.base?(tot/r.base*100):0;
+  const dateJour=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
   box.innerHTML=`
+    <div style="font-size:12px;color:var(--faint);margin-bottom:10px">Estimation établie le ${dateJour}</div>
     <div class="total"><span class="lbl">Total estimé</span><span class="val">${eur(tot)}</span></div>
     ${r.noPct?'':`<div class="pct">soit <b>${pctf(pct)}</b> ${r.pctLabel||'du prix'}${arrondi?' · arrondi à la centaine sup.':''}</div>`}
     <ul class="lines">${r.lines.map(l=>`
       <li class="${l.group?'group':''} ${l.sub?'sub':''} ${l.discount?'discount':''}">
         <span class="k">${l.k}${l.note?`<small>${l.note}</small>`:''}</span>
         <span class="v">${l.v}</span>
-      </li>`).join('')}</ul>`;
+      </li>`).join('')}</ul>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:12px;border-top:2px solid var(--ink);font-weight:700;color:var(--ink);font-size:15px">
+      <span>Total général${arrondi?' <span style="font-weight:400;color:var(--faint);font-size:12px">arrondi à la centaine sup.</span>':''}</span><span>${eur(tot)}</span>
+    </div>
+    ${r.aside&&r.aside.length?`<div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--line)">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);margin-bottom:6px">Pour information — hors frais d'acte</div>
+      <ul class="lines">${r.aside.map(a=>`<li class="sub"><span class="k">${a.k}${a.note?`<small>${a.note}</small>`:''}</span><span class="v">${a.v}</span></li>`).join('')}</ul>
+    </div>`:''}`;
   // Encart remise + émolument retenu : COLONNE DE GAUCHE (interne, non visible du client)
   if(rz){
     if(r.remise && r.remise.show){
@@ -1765,7 +1960,7 @@ function ensureHtml2pdf(){
     document.head.appendChild(sc);
   });
 }
-function buildEstimateHTML(calc, baseLabel){
+function buildEstimateHTML(calc, baseLabel, client){
   const r=calc.compute();
   if(!r||!r.base) return null;
   const tot=provision(r.total), arrondi=r.total>=500, pct=r.base?(tot/r.base*100):0;
@@ -1774,23 +1969,30 @@ function buildEstimateHTML(calc, baseLabel){
     if(l.group){
       return `<tr><td style="padding:9px 0 4px;border-top:1px solid #E7E5E4;font-weight:700;color:#0F2238">${l.k}${l.note?`<div style="font-weight:400;font-size:11px;color:#78716C">${l.note}</div>`:''}</td><td style="padding:9px 0 4px;border-top:1px solid #E7E5E4;text-align:right;font-weight:700;color:#0F2238;white-space:nowrap">${l.v}</td></tr>`;
     }
-    return `<tr><td style="padding:2px 0 2px 18px;font-size:12.5px;color:#57534E">${l.k}${l.note?`<span style="color:#A8A29E"> · ${l.note}</span>`:''}</td><td style="padding:2px 0;text-align:right;font-size:12.5px;white-space:nowrap;color:${l.discount?'#0E7490':'#57534E'}">${l.v}</td></tr>`;
+    return `<tr><td style="padding:2px 0 2px 18px;font-size:12.5px;color:#57534E">${l.k}${(!client && l.note)?`<span style="color:#A8A29E"> · ${l.note}</span>`:''}</td><td style="padding:2px 0;text-align:right;font-size:12.5px;white-space:nowrap;color:${l.discount?'#0E7490':'#57534E'}">${l.v}</td></tr>`;
   }).join('');
   return `
   <div style="font-family:'Segoe UI',Arial,sans-serif;color:#1C1917;width:680px">
-    <div style="background:#0F2238;color:#fff;padding:22px 28px;border-bottom:3px solid #C99A2E">
-      <div style="font-size:20px;font-weight:700;letter-spacing:.5px">FIDAL <span style="color:#C99A2E">/</span> NOTAIRES</div>
-      <div style="font-size:12px;color:#9DB4C0;margin-top:2px">COUNTDOWN — estimation de frais d'acte</div>
+    <div style="background:#0F2238;color:#fff;padding:22px 28px;border-bottom:3px solid #C99A2E;display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div style="font-size:20px;font-weight:700;letter-spacing:.5px">FIDAL <span style="color:#C99A2E">/</span> NOTAIRES</div>
+        <div style="font-size:12px;color:#9DB4C0;margin-top:2px">COUNTDOWN — estimation de frais d'acte</div>
+      </div>
+      <div style="font-size:12px;color:#9DB4C0;text-align:right;white-space:nowrap">${today}</div>
     </div>
     <div style="padding:24px 28px">
       <h1 style="font-size:18px;color:#0F2238;margin:0 0 2px">${calc.label}</h1>
-      <div style="font-size:12px;color:#78716C;margin-bottom:16px">${today} · ${baseLabel} : ${eur(r.base)}</div>
+      <div style="font-size:12px;color:#78716C;margin-bottom:16px">${baseLabel} : ${eur(r.base)}</div>
       <table style="width:100%;border-collapse:collapse">${rows}</table>
       <div style="margin-top:18px;background:#33838B12;border:1px solid #33838B40;border-radius:8px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:13px;color:#0F2238;font-weight:600">Total estimé${arrondi?' (arrondi à la centaine sup.)':''}</span>
+        <span style="font-size:13px;color:#0F2238;font-weight:600">Total général${arrondi?' (arrondi à la centaine sup.)':''}</span>
         <span style="font-size:22px;color:#0F2238;font-weight:700">${eur(tot)}</span>
       </div>
-      <div style="font-size:11px;color:#78716C;text-align:right;margin-top:4px">soit ${pctf(pct)} de la valeur</div>
+      ${r.noPct?'':`<div style="font-size:11px;color:#78716C;text-align:right;margin-top:4px">soit ${pctf(pct)} de la valeur</div>`}
+      ${r.aside&&r.aside.length?`<div style="margin-top:16px;border-top:1px dashed #E7E5E4;padding-top:10px">
+        <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:#A8A29E;margin-bottom:6px">Pour information — hors frais d'acte</div>
+        <table style="width:100%;border-collapse:collapse">${r.aside.map(a=>`<tr><td style="padding:2px 0;font-size:12.5px;color:#57534E">${a.k}${a.note?`<span style="color:#A8A29E"> · ${a.note}</span>`:''}</td><td style="padding:2px 0;text-align:right;font-size:12.5px;white-space:nowrap;color:#57534E">${a.v}</td></tr>`).join('')}</table>
+      </div>`:''}
       <p style="font-size:10.5px;color:#A8A29E;margin-top:22px;line-height:1.5;border-top:1px solid #E7E5E4;padding-top:12px">Estimation indicative établie sur les barèmes en vigueur — ne constitue ni un devis ni un engagement. Les débours sont des provisions. Document généré par COUNTDOWN (FIDAL Notaires).</p>
     </div>
   </div>`;
@@ -1863,17 +2065,17 @@ function exportComptaPDF(calc, btn){
       .catch(()=>{ if(el.parentNode) document.body.removeChild(el); restore(); });
   }).catch(()=>{ restore('Hors-ligne'); setTimeout(()=>restore(),1800); });
 }
-function exportEstimatePDF(calc, baseLabel, btn){
-  const html=buildEstimateHTML(calc, baseLabel);
+function exportEstimatePDF(calc, baseLabel, btn, client){
+  const html=buildEstimateHTML(calc, baseLabel, client);
   if(!html) return;
   const old=btn?btn.textContent:'';
   if(btn){ btn.textContent='PDF…'; btn.disabled=true; }
-  const restore=(txt)=>{ if(btn){ btn.textContent=txt||old||'Exporter PDF'; btn.disabled=false; } };
+  const restore=(txt)=>{ if(btn){ btn.textContent=txt||old||'PDF'; btn.disabled=false; } };
   ensureHtml2pdf().then(()=>{
     const el=document.createElement('div');
     el.style.cssText='position:fixed;left:-10000px;top:0;background:#fff';
     el.innerHTML=html; document.body.appendChild(el);
-    const name=`COUNTDOWN_${calc.label.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w]+/g,'_')}_${new Date().toISOString().slice(0,10)}.pdf`;
+    const name=`COUNTDOWN_${calc.label.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w]+/g,'_')}${client?'_client':''}_${new Date().toISOString().slice(0,10)}.pdf`;
     window.html2pdf().set({margin:[0,0,0,0],filename:name,image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}})
       .from(el.firstElementChild).save()
       .then(()=>{ document.body.removeChild(el); restore('Exporté ✓'); setTimeout(()=>restore(),1400); })
@@ -1928,6 +2130,7 @@ function show(){
     else if(active.id==='changement'){ wireChangement(); renderResults(); }
     else if(active.id==='pret'){ wirePret(); renderResults(); }
     else if(active.id==='mainlevee'){ wireMainlevee(); renderResults(); }
+    else if(active.id==='promesse'){ wireProm(); renderResults(); }
   }
   const foot=document.getElementById('foot');
   if(foot) foot.style.display = (view==='calculator' && active && active.id==='immo') ? '' : 'none';
@@ -2334,6 +2537,119 @@ function wireMainlevee(){
   };
   $('mpdf').onclick=()=>exportEstimatePDF(moduleMainlevee,'Montant garanti',$('mpdf'));
   $('mpdfmail').onclick=()=>emailEstimatePDF(moduleMainlevee,'Montant garanti',$('mpdfmail'));
+}
+
+/* ---- Câblage du module promesse de vente ---- */
+function wireProm(){
+  const s=modulePromesse.state;
+  const $=id=>document.getElementById(id);
+  const num=(el,key,after)=>{ if(!el) return; el.oninput=()=>{ s[key]=parseNum(el.value); if(after)after(); renderResults(); }; el.onblur=()=>{ el.value=(s[key]||0).toLocaleString('fr-FR'); }; };
+
+  function syncLegal(){
+    const box=$('p_legal'), dh=$('p_dureeHint'), ih=$('p_indemHint');
+    const prix=s.prix||0;
+
+    // Forme de l'acte (art. L290-1 CCH)
+    let forme;
+    if(s.duree==='sup18'){
+      forme=`<div class="remise-warn"><span class="warn-ico">⚠️</span> Durée &gt; 18 mois consentie par une personne physique : l'acte authentique est <b>obligatoire à peine de nullité</b> (art. L290-1 CCH).</div>`;
+      if(dh) dh.textContent='Acte authentique obligatoire (L290-1 CCH).';
+    } else {
+      forme=`<div class="remise-note">Durée ≤ 18 mois : la forme authentique n'est pas imposée par l'article L290-1 CCH ; l'acte est reçu en la forme authentique selon la pratique de l'office.</div>`;
+      if(dh) dh.textContent='Forme authentique non imposée par L290-1.';
+    }
+
+    // Indemnité d'immobilisation / dépôt de garantie — pré-rempli à 5 % du prix
+    const min5=prix*0.05, saisie=(s.indemnite==null?min5:Math.max(0,s.indemnite||0));
+    let indem='';
+    if(s.type==='puv'){
+      if(s.duree==='sup18'){
+        const insuf = saisie < min5-0.005;
+        indem=`<div class="remise-max">Indemnité d'immobilisation : <b>minimum légal de 5 % du prix</b> (art. L290-2 CCH), soit <b>≥ ${eur2(min5)}</b>, versée ou cautionnée entre les mains du notaire.</div>`;
+        if(insuf) indem+=`<div class="remise-warn"><span class="warn-ico">⚠️</span> Indemnité saisie ${eur2(saisie)} <b>inférieure</b> au minimum légal de 5 % (${eur2(min5)}) — promesse nulle (L290-2 CCH).</div>`;
+        if(ih) ih.textContent = `Pré-remplie à 5 % (${eur(min5)}) — minimum légal L290-2`+(insuf?' · ⚠️ saisie insuffisante':'');
+      } else {
+        indem=`<div class="remise-note">Indemnité d'immobilisation pré-remplie à 5 % du prix (usage 5 à 10 %), facultative ici, séquestrée puis imputée sur le prix en cas de réitération.</div>`;
+        if(ih) ih.textContent='Pré-remplie à 5 % du prix (facultative, usage 5 à 10 %).';
+      }
+    } else {
+      indem=`<div class="remise-note">Compromis : dépôt de garantie pré-rempli à 5 % du prix (séquestré, imputé sur le prix). Les deux parties étant engagées, l'indemnité d'immobilisation au sens de L290-2 n'est pas requise.</div>`;
+      if(ih) ih.textContent='Dépôt de garantie pré-rempli à 5 % du prix.';
+    }
+
+    if(box) box.innerHTML=`<div class="remise-box" style="margin-top:16px">
+      <div style="font-weight:700;color:var(--ink);font-size:13px;margin-bottom:8px">Régime juridique <span style="font-weight:400;color:var(--faint)">— interne, ne figure pas sur l'estimation client</span></div>
+      ${forme}${indem}
+      <div class="remise-note">Acte non tarifé : rémunération en honoraire libre (art. L444-1 al. 3 C. com.), sans remise R444-10. L'indemnité d'immobilisation / le dépôt de garantie n'est pas un frais d'acte et n'entre pas au total.</div>
+    </div>`;
+  }
+
+  function syncIndem(){
+    const lab=$('p_indemLab'), inp=$('p_indem');
+    if(lab) lab.innerHTML = (s.type==='puv'?"Indemnité d'immobilisation":"Dépôt de garantie")+` <span>séquestré — hors frais d'acte</span>`;
+    if(inp && s.indemnite==null) inp.value = Math.round((s.prix||0)*0.05).toLocaleString('fr-FR');
+  }
+
+  function syncPub(){
+    const wrap=$('p_lfWrap'), hint=$('p_pubHint'), lfh=$('p_lfHint');
+    const prix=s.prix||0;
+    if(wrap) wrap.style.display = (s.publicite==='lf') ? '' : 'none';
+    if(hint){
+      hint.textContent = s.publicite==='spf'
+        ? 'CSI 0,10 % du prix (min. 15 €), art. 879 CGI — pas de mutation, donc pas de TPF.'
+        : s.publicite==='lf'
+          ? 'Alsace-Moselle : inscription par prénotation (art. 39 loi 1er juin 1924), imputable sur l\'acte définitif.'
+          : 'Promesse non publiée (cas usuel) : aucun frais de publicité foncière.';
+    }
+    if(lfh){
+      const suggest=0.5*emolumentsHT(prix);
+      lfh.textContent = `Prénotation (A444-177 3°) : usuellement ½ de l'émolument de vente, soit ≈ ${eur2(suggest)} HT. Base interprétative — à valider.`;
+    }
+  }
+
+  document.querySelectorAll('#p_type button').forEach(b=>b.onclick=()=>{
+    s.type=b.dataset.v;
+    document.querySelectorAll('#p_type button').forEach(x=>x.classList.toggle('on',x===b));
+    syncLegal(); syncIndem(); renderResults();
+  });
+  document.querySelectorAll('#p_duree button').forEach(b=>b.onclick=()=>{
+    s.duree=b.dataset.v;
+    document.querySelectorAll('#p_duree button').forEach(x=>x.classList.toggle('on',x===b));
+    syncLegal(); renderResults();
+  });
+  num($('p_prix'),'prix',()=>{ syncLegal(); syncPub(); syncIndem(); });
+  const indemEl=$('p_indem');
+  if(indemEl){
+    indemEl.oninput=()=>{ s.indemnite=parseNum(indemEl.value); syncLegal(); renderResults(); };
+    indemEl.onblur=()=>{ const v=(s.indemnite==null?Math.round((s.prix||0)*0.05):Math.max(0,s.indemnite||0)); indemEl.value=v.toLocaleString('fr-FR'); };
+  }
+  num($('p_hono'),'honoraire');
+  num($('p_debours'),'debours');
+  num($('p_lf'),'fraisLF');
+  function syncCopies(){ const h=$('p_copiesHint'); if(h){ const ht=Math.max(0,s.copiesPages||0)*Math.max(0,s.tarifCopiePage||0); h.textContent=`${eur2(ht)} HT (+ TVA) — soit ${eur2(ht*1.2)} TTC.`; } }
+  num($('p_copies'),'copiesPages',syncCopies);
+  const tc=$('p_tarifcopie');
+  if(tc){ tc.oninput=()=>{ s.tarifCopiePage=parseNum(tc.value); syncCopies(); renderResults(); }; tc.onblur=()=>{ tc.value=String(s.tarifCopiePage||0).replace('.',','); }; }
+  const enr=$('p_enr'); if(enr) enr.onchange=()=>{ s.enr=enr.checked; renderResults(); };
+  document.querySelectorAll('#p_pub button').forEach(b=>b.onclick=()=>{
+    s.publicite=b.dataset.v;
+    document.querySelectorAll('#p_pub button').forEach(x=>x.classList.toggle('on',x===b));
+    syncPub(); renderResults();
+  });
+  syncLegal(); syncPub(); syncCopies(); syncIndem();
+
+  $('pmreset').onclick=()=>{ modulePromesse.state={type:'puv',prix:250000,duree:'inf18',indemnite:null,honoraire:300,enr:true,publicite:'non',fraisLF:0,copiesPages:50,tarifCopiePage:0.30,debours:0}; mount(); };
+  $('pmcopy').onclick=()=>{
+    const r=modulePromesse.compute();
+    const txt=`FIDAL Notaires — COUNTDOWN — Promesse de vente (estimation)\nPrix: ${eur(r.base)}\n`+
+      r.lines.map(l=>`${l.sub?'  ':''}${l.k.replace(/\s+/g,' ')}: ${l.v}`).join('\n')+
+      `\nTOTAL: ${eur(provision(r.total))}`;
+    navigator.clipboard?.writeText(txt);
+    const btn=$('pmcopy'); btn.textContent='Copié ✓'; setTimeout(()=>btn.textContent='Copier le détail',1400);
+  };
+  $('pmpdf').onclick=()=>exportEstimatePDF(modulePromesse,'Prix',$('pmpdf'));
+  $('pmpdfclient').onclick=()=>exportEstimatePDF(modulePromesse,'Prix',$('pmpdfclient'),true);
+  $('pmpdfmail').onclick=()=>emailEstimatePDF(modulePromesse,'Prix',$('pmpdfmail'));
 }
 
 /* ====================  DICTÉE VOCALE  ==================== */
