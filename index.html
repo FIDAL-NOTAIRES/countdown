@@ -756,24 +756,32 @@ const moduleDonation = {
           </label>
 
         <div class="f" id="d_antWrap" style="margin-top:4px">
-          <span class="lab" style="display:block;margin-bottom:4px">Donations reçues ces 15 dernières années <span style="color:var(--faint);font-weight:400;font-size:11px">par donataire · viennent en déduction de l'abattement (art. 784 CGI)</span></span>
-          <div id="d_antRows" style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
-            ${Array.from({length:10},(_,j)=>`
-              <div id="d_antRow${j}" style="display:${j<(s.donataires||1)?'flex':'none'};align-items:center;gap:10px">
-                <div style="font-size:13px;color:var(--ink-soft);font-weight:600;min-width:92px">Donataire ${j+1}</div>
-                <div style="flex:1;display:flex;gap:8px">
-                  <div style="flex:1">
-                    <div style="font-size:11px;color:var(--faint);margin-bottom:2px;display:${(s.donateurs||1)===2?'block':'none'}" id="d_antLabA${j}">Du donateur 1</div>
-                    <div class="priceField"><input type="text" inputmode="numeric" id="d_ant_0_${j}" value="${((s.donAnt&&s.donAnt[0]&&s.donAnt[0][j])||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
+          <span class="lab" style="display:block;margin-bottom:4px">Donations antérieures (15 ans) <span style="color:var(--faint);font-weight:400;font-size:11px">par donataire · avec abattements alors utilisés (art. 784 CGI)</span></span>
+          <div id="d_antRows" style="display:flex;flex-direction:column;gap:12px;margin-top:8px">
+            ${Array.from({length:10},(_,j)=>{
+              const two=(s.donateurs||1)===2;
+              const col=(i)=>{
+                const P=(s.donAnt&&s.donAnt[i]&&s.donAnt[i][j])||0;
+                const abgt=(LIENS[s.lien]?LIENS[s.lien].ab:100000)+(s.handicap?159325:0);
+                const g=(s.abGenAnt&&s.abGenAnt[i]&&s.abGenAnt[i][j])||(P>0?Math.min(P,abgt):0);
+                const sp=(s.abSpeAnt&&s.abSpeAnt[i]&&s.abSpeAnt[i][j])||0;
+                const fld=(id,lab,val)=>`<div><div style="font-size:10px;color:var(--faint);margin-bottom:1px">${lab}</div><div class="priceField"><input type="text" inputmode="numeric" id="${id}" value="${val.toLocaleString('fr-FR')}"><span class="euro">€</span></div></div>`;
+                return `<div style="flex:1;${i===1?`display:${two?'block':'none'}`:''}" ${i===1?`id="d_antColB${j}"`:''}>
+                  <div style="font-size:11px;color:var(--ink-soft);font-weight:600;margin-bottom:3px;${i===0?`display:${two?'block':'none'}`:''}" ${i===0?`id="d_antLabA${j}"`:''}>Du donateur ${i+1}</div>
+                  <div style="display:flex;flex-direction:column;gap:5px">
+                    ${fld(`d_ant_${i}_${j}`,'Donation antérieure',P)}
+                    ${fld(`d_abg_${i}_${j}`,'Abatt. général utilisé',g)}
+                    ${fld(`d_abs_${i}_${j}`,'Abatt. spécial 790 G',sp)}
                   </div>
-                  <div style="flex:1;display:${(s.donateurs||1)===2?'block':'none'}" id="d_antColB${j}">
-                    <div style="font-size:11px;color:var(--faint);margin-bottom:2px">Du donateur 2</div>
-                    <div class="priceField"><input type="text" inputmode="numeric" id="d_ant_1_${j}" value="${((s.donAnt&&s.donAnt[1]&&s.donAnt[1][j])||0).toLocaleString('fr-FR')}"><span class="euro">€</span></div>
-                  </div>
-                </div>
-              </div>`).join('')}
+                </div>`;
+              };
+              return `<div id="d_antRow${j}" style="display:${j<(s.donataires||1)?'flex':'none'};align-items:flex-start;gap:10px">
+                <div style="font-size:13px;color:var(--ink-soft);font-weight:600;min-width:92px;padding-top:16px">Donataire ${j+1}</div>
+                <div style="flex:1;display:flex;gap:8px">${col(0)}${col(1)}</div>
+              </div>`;
+            }).join('')}
           </div>
-          <span class="microhint">Montant déjà donné par le même donateur au même donataire sur 15 ans (valeur taxable d'alors). 0 € si aucune. L'abattement n'est rouvert qu'au-delà de 15 ans.</span>
+          <span class="microhint"><b>Donation antérieure</b> = montant donné par le même donateur au même donataire sur 15 ans (0 € si aucune). <b>Abatt. général</b> (art. 779) et <b>Abatt. spécial 790 G</b> (don familial de sommes) = abattements utilisés lors de cette donation ; ils se cumulent et se déduisent de l'antériorité pour déterminer la part alors taxée. Le 790 G n'est PAS rapportable : il ne consomme ni l'abattement de 100 000 €, ni les tranches. L'abattement n'est rouvert qu'au-delà de 15 ans.</span>
         </div>
         </div>
 
@@ -872,10 +880,14 @@ const moduleDonation = {
       immTransmise   += imm*d.p*frac;
       const vCouple = vDon/nd;                             // part reçue par chaque donataire de ce donateur
       for(let j=0;j<nd;j++){
-        const P = (DA[i] && DA[i][j]) || 0;                // donations antérieures (15 ans) de ce donateur à ce donataire
+        const P = (DA[i] && DA[i][j]) || 0;                // donation antérieure (15 ans) de ce donateur à ce donataire
         priorTotal += P;
-        const consoAnt = Math.max(P - abattCell, 0);       // fraction des dons antérieurs déjà taxée (consomme les tranches basses)
-        const abattRes = Math.max(abattCell - P, 0);       // abattement résiduel disponible
+        const abGeneralTotal = L.ab + (s.handicap?159325:0);                                 // abattement général renouvelable (art. 779 + handicap)
+        const gRaw = (s.abGenAnt && s.abGenAnt[i] && s.abGenAnt[i][j]) || 0;                  // abatt. général déjà utilisé (saisi)
+        const abGen = gRaw>0 ? Math.min(gRaw, abGeneralTotal) : Math.min(P, abGeneralTotal);  // défaut = min(antérieure, abatt. général)
+        const abSpe = (s.abSpeAnt && s.abSpeAnt[i] && s.abSpeAnt[i][j]) || 0;                 // abatt. spécial 790 G utilisé (NON rapportable)
+        const consoAnt = Math.max(P - abGen - abSpe, 0);   // valeur taxable d'alors → consomme les tranches basses
+        const abattRes = Math.max(abGeneralTotal - abGen, 0) + (s.donFamilial?31865:0);       // abattement disponible pour la donation actuelle (général résiduel + 790 G actuel)
         const taxNouv  = Math.max(vCouple - abattRes, 0);  // base taxable de la nouvelle donation
         abattApplique += Math.min(abattRes, vCouple);
         taxableTotal  += taxNouv;
@@ -2249,6 +2261,8 @@ function wireDonation(){
 
   // Donations antérieures (15 ans) — matrice donateur × donataire
   if(!s.donAnt) s.donAnt=[[],[]];
+  if(!s.abGenAnt) s.abGenAnt=[[],[]];   // abattement général utilisé sur l'antériorité
+  if(!s.abSpeAnt) s.abSpeAnt=[[],[]];   // abattement spécial 790 G utilisé sur l'antériorité
   function updateAnt(){
     const nd=Math.max(1,s.donataires||1);
     const two=(s.donateurs||1)===2;
@@ -2260,8 +2274,21 @@ function wireDonation(){
   }
   for(let i=0;i<2;i++){ for(let j=0;j<10;j++){ (function(i,j){
     const el=$('d_ant_'+i+'_'+j); if(!el) return;
-    el.oninput=()=>{ if(!s.donAnt[i]) s.donAnt[i]=[]; s.donAnt[i][j]=parseNum(el.value); renderResults(); };
+    el.oninput=()=>{
+      if(!s.donAnt[i]) s.donAnt[i]=[]; s.donAnt[i][j]=parseNum(el.value);
+      // pré-remplissage de l'abattement général par défaut = min(antérieure, abatt. légal) tant qu'il n'est pas saisi
+      const abgt=(LIENS[s.lien]?LIENS[s.lien].ab:100000)+(s.handicap?159325:0);
+      const explicit = s.abGenAnt[i] && s.abGenAnt[i][j];
+      if(!explicit){ const gEl=$('d_abg_'+i+'_'+j); if(gEl && document.activeElement!==gEl) gEl.value=Math.min(s.donAnt[i][j],abgt).toLocaleString('fr-FR'); }
+      renderResults();
+    };
     el.onblur=()=>{ el.value=((s.donAnt[i]&&s.donAnt[i][j])||0).toLocaleString('fr-FR'); };
+    const g=$('d_abg_'+i+'_'+j);
+    if(g){ g.oninput=()=>{ if(!s.abGenAnt[i]) s.abGenAnt[i]=[]; s.abGenAnt[i][j]=parseNum(g.value); renderResults(); };
+           g.onblur=()=>{ g.value=((s.abGenAnt[i]&&s.abGenAnt[i][j])|| (((s.donAnt[i]&&s.donAnt[i][j])||0)>0?Math.min((s.donAnt[i]&&s.donAnt[i][j])||0,(LIENS[s.lien]?LIENS[s.lien].ab:100000)+(s.handicap?159325:0)):0)).toLocaleString('fr-FR'); }; }
+    const sp=$('d_abs_'+i+'_'+j);
+    if(sp){ sp.oninput=()=>{ if(!s.abSpeAnt[i]) s.abSpeAnt[i]=[]; s.abSpeAnt[i][j]=parseNum(sp.value); renderResults(); };
+            sp.onblur=()=>{ sp.value=((s.abSpeAnt[i]&&s.abSpeAnt[i][j])||0).toLocaleString('fr-FR'); }; }
   })(i,j); } }
 
   $('d_lien').onchange=()=>{ s.lien=$('d_lien').value; renderResults(); };
@@ -2350,7 +2377,7 @@ function wireDonation(){
   updateAge(); updatePart(); updateAnt(); updateRev();
 
   $('dreset').onclick=()=>{
-    moduleDonation.state={lien:'enfant',donateurs:1,donataires:1,partD1:50,ageUsuf2:71,immeuble:true,valImmeuble:300000,usage:'resid',societe:false,valSociete:0,liquidites:false,valLiquidites:0,demembre:false,ageUsuf:71,reversion:false,ageRevBenef:71,handicap:false,donFamilial:false,debours:400,emolRetenu:null,donAnt:[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}; mount();
+    moduleDonation.state={lien:'enfant',donateurs:1,donataires:1,partD1:50,ageUsuf2:71,immeuble:true,valImmeuble:300000,usage:'resid',societe:false,valSociete:0,liquidites:false,valLiquidites:0,demembre:false,ageUsuf:71,reversion:false,ageRevBenef:71,handicap:false,donFamilial:false,debours:400,emolRetenu:null,donAnt:[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]],abGenAnt:[[],[]],abSpeAnt:[[],[]]}; mount();
   };
   $('dcopy').onclick=()=>{
     const r=moduleDonation.compute();
