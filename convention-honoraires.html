@@ -463,6 +463,16 @@
         q.value=String(n);
       });
     });
+    /* procuration authentique : émoluments de l'acte, copies, formalités et droit d'enregistrement */
+    if(P.get('proc')==='oui'){
+      document.getElementById('procSel').value='oui';
+      [['procNb',P.get('procNb')],['procPages',P.get('procPages')]].forEach(function(x){
+        if(x[1]==null) return; var el=document.getElementById(x[0]), n=String(Math.max(0,Math.floor(+x[1]||0)));
+        if(![].slice.call(el.options).some(function(o){return o.value===n;})) el.add(new Option(n,n));
+        el.value=n;
+      });
+      syncProc(); recalcEmol();
+    }
     recalc();
     if(P.get('origine')==='coffee'){
       /* Mail arrêté par JFD le 18/10/2026 pour les demandes venues de COFFEE */
