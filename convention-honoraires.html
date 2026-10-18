@@ -434,6 +434,52 @@
   document.getElementById('client').addEventListener('input',syncClient2);
   syncClient2(); recalcEmol(); syncProc(); syncPays();
   recalc(); syncClient();
+
+  /* ===== Préremplissage depuis COFFEE (carte « Formalité selon le pays », 18/10/2026) =====
+     COFFEE ouvre ce générateur avec les données de la fiche d'accueil dans l'adresse :
+       ?origine=coffee&client=…&email=…&pays=…&copie=…&certification=…&dispense=…&apostille=…&legalisation=…
+     Ce générateur reste la SEULE source du barème et de la proposition d'honoraires.
+     Sans paramètre, il se comporte exactement comme avant. */
+  (function prerempli(){
+    var P=new URLSearchParams(location.search); if(![...P.keys()].length) return;
+    var sansAcc=function(x){return String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');};
+    if(P.get('client')){ document.getElementById('client').value=P.get('client'); syncClient(); syncClient2(); }
+    if(P.get('email')) document.getElementById('emailTo').value=P.get('email');
+    if(P.get('pays')){
+      var sel=document.getElementById('pays'), k=sansAcc(P.get('pays'));
+      var opt=[].slice.call(sel.options).find(function(o){return o.value && (sansAcc(o.value)===k || sansAcc(o.value).indexOf(k)===0 || k.indexOf(sansAcc(o.value))===0);});
+      if(!opt){ opt=new Option(P.get('pays'),P.get('pays')); sel.add(opt); }
+      sel.value=opt.value; syncPays();
+    }
+    /* lignes du barème repérées par leur libellé, pas par leur rang */
+    var LIGNES={copie:'copie', certification:'certification', depot:'acte de dépôt', opinion:'legal opinion', dispense:'dispense',
+      apostille:'apostille(s)', legalisation:'légalisation(s)', deplacement:'forfait déplacement', dhl_europe:'zone europe', dhl_hors:'hors europe'};
+    document.querySelectorAll('[data-q]').forEach(function(q){
+      var lib=(q.closest('tr').querySelector('.label').textContent||'').toLowerCase();
+      Object.keys(LIGNES).forEach(function(cle){
+        if(!P.has(cle) || lib.indexOf(LIGNES[cle])<0) return;
+        var n=Math.max(0,Math.floor(+P.get(cle)||0));
+        if(![].slice.call(q.options).some(function(o){return +o.value===n;})) q.add(new Option(String(n),String(n)));
+        q.value=String(n);
+      });
+    });
+    recalc();
+    if(P.get('origine')==='coffee'){
+      /* Mail arrêté par JFD le 18/10/2026 pour les demandes venues de COFFEE */
+      var civ=P.get('civ')||'', pays=document.getElementById('pays').value||P.get('pays')||'', plur=(+P.get('nbdocs')||2)>1;
+      var appel=civ==='Madame'?'Chère Madame,':civ==='Monsieur'?'Cher Monsieur,':'Madame, Monsieur,';
+      mailFields=function(){
+        var cli=(document.getElementById('client').value||'').trim()||'le client';
+        var to=(document.getElementById('emailTo').value||'').trim();
+        var cc=[(document.getElementById('emailCc1').value||'').trim(),(document.getElementById('emailCc2').value||'').trim()].filter(Boolean).join(',');
+        var body=appel+"\n\nVous trouverez ci-joint notre proposition d'honoraires relative à la certification "+(plur?'de vos documents':'de votre document')
+          +" en vue de "+(plur?'leur':'sa')+" légalisation"+(pays?' (pays de destination : '+pays+')':'')+".\n\n"
+          +"Notre étude se chargera de l'ensemble des diligences nécessaires à "+(plur?'leur':'sa')+" transmission à vos interlocuteurs à l'étranger.\n\n"
+          +"Vous souhaitant bonne réception des présentes, je vous souhaite une bonne journée.";
+        return {to:to,cc:cc,subject:"Proposition d'honoraires \u2013 "+cli,body:body};
+      };
+    }
+  })();
 </script>
 </body>
 </html>
