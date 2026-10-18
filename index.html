@@ -204,8 +204,15 @@
   .launch-list li:last-child{border-bottom:none}
   .launch-list b{color:var(--heading)}
 </style>
+<style>
+  /* Bandeau d'incidents commun (19/10/2026) : le corps de page est rempli (32 px en haut, 20 px sur les côtés) ; l'emplacement ne prend de place, et ne
+     la prend sur toute la largeur, que lorsqu'un incident est affiché. */
+  #fidal-bandeau-zone:not(:empty){margin:-32px -20px 24px}
+</style>
+  <script src="https://connexion-omega.vercel.app/bandeau.js" defer></script>
 </head>
 <body>
+<div id="fidal-bandeau-zone"></div>
 <div class="wrap">
 
   <header>
